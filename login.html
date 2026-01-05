@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Log In | ShopKart</title>
+  <link rel="stylesheet" href="./public/styles.css" />
+  <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
+  <script src="./public/products.js"></script>
+  <script src="./public/static-data.js"></script>
+  <script src="./public/data-layer-helper.js"></script>
+  <script>
+    (function() {
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      if (user) {
+        window.location.href = './index.html';
+        return;
+      }
+      const initialPush = window.DataLayerHelper.buildBasePush({
+        event: 'pageView',
+        pageType: 'login',
+        pageName: 'Log In',
+        url: window.location.href
+      });
+      window.adobeDataLayer.push(initialPush);
+    })();
+  </script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/e91b4a5d371e/launch-889ca7a6e623-development.min.js" async></script>
+</head>
+<body data-page-type="login">
+  <header>
+    <div class="topbar">
+      <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
+      <form class="search" method="GET" action="./plp.html">
+        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more" aria-label="Search products" value="" />
+        <button type="submit">Search</button>
+      </form>
+      <div class="actions">
+        <span id="user-info"></span>
+        <a href="./account.html" aria-label="Account" id="account-link">Account</a>
+        <a href="./logout.html" aria-label="Logout" id="logout-link" style="display:none;">Logout</a>
+        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge" data-role="cart-count">0</span></a>
+      </div>
+    </div>
+    <div class="categories">
+      <a href="./plp.html?cat=electronics">Electronics</a>
+      <a href="./plp.html?cat=mobiles">Mobiles</a>
+      <a href="./plp.html?cat=fashion">Fashion</a>
+      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=beauty">Beauty</a>
+      <a href="./plp.html?cat=all">All</a>
+    </div>
+  </header>
+  <main>
+  <h2>Log In</h2>
+  <div id="login-content">
+    <div class="summary">
+      <form id="login-form">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" required placeholder="john@example.com" />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" required placeholder="Enter password" />
+        </div>
+        <button class="button primary" type="submit">Log In</button>
+      </form>
+      <p style="margin-top:16px;"><a href="./signup.html">Don't have an account? Sign up</a></p>
+    </div>
+  </div>
+  </main>
+  <footer>
+    <p>ShopKart marketplace</p>
+  </footer>
+  <script src="./public/adl-utils.js"></script>
+  <script src="./public/client.js"></script>
+  <script>
+    (function() {
+      const error = new URLSearchParams(window.location.search).get('error');
+      if (error) {
+        const container = document.getElementById('login-content');
+        container.innerHTML = `
+          <div class="notice" style="background:#fee;border-color:#fcc;color:#c00;">${error}</div>
+          <div class="summary">
+            <form id="login-form">
+              <div class="form-group">
+                <label for="email">Email</label>
+                <input id="email" name="email" type="email" required placeholder="john@example.com" />
+              </div>
+              <div class="form-group">
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" required placeholder="Enter password" />
+              </div>
+              <button class="button primary" type="submit">Log In</button>
+            </form>
+            <p style="margin-top:16px;"><a href="./signup.html">Don't have an account? Sign up</a></p>
+          </div>
+        `;
+      }
+      
+      document.getElementById('login-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const email = formData.get('email');
+        const password = formData.get('password');
+        
+        if (!email || !password) {
+          window.location.href = './login.html?error=' + encodeURIComponent('Email and password are required');
+          return;
+        }
+        
+        const users = window.StaticData.getUsers();
+        const user = users[email.toLowerCase()];
+        
+        if (!user || user.password !== password) {
+          window.location.href = './login.html?error=' + encodeURIComponent('Invalid email or password');
+          return;
+        }
+        
+        window.StaticData.setUser({ id: user.id, name: user.name, email: user.email });
+        const redirect = new URLSearchParams(window.location.search).get('redirect') || './index.html';
+        window.location.href = redirect;
+      });
+    })();
+  </script>
+</body>
+</html>

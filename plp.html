@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Listing | ShopKart</title>
+  <link rel="stylesheet" href="./public/styles.css" />
+  <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
+  <script src="./public/products.js"></script>
+  <script src="./public/static-data.js"></script>
+  <script src="./public/data-layer-helper.js"></script>
+  <script>
+    (function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const category = (urlParams.get('cat') || '').toLowerCase();
+      const searchQuery = (urlParams.get('q') || '').toLowerCase().trim();
+      
+      let filtered = PRODUCTS;
+      
+      if (category && category !== 'all') {
+        filtered = filtered.filter((p) => p.category.toLowerCase() === category);
+      }
+      
+      if (searchQuery) {
+        filtered = filtered.filter((p) => 
+          p.name.toLowerCase().includes(searchQuery) ||
+          p.brand.toLowerCase().includes(searchQuery) ||
+          p.category.toLowerCase().includes(searchQuery)
+        );
+      }
+      
+      const productList = filtered.map((p, idx) => ({
+        productId: p.id,
+        productName: p.name,
+        productCategory: p.category,
+        brand: p.brand,
+        price: p.price,
+        position: idx + 1,
+        quantity: 1
+      }));
+      
+      const catLabel = category && category !== 'all'
+        ? category.charAt(0).toUpperCase() + category.slice(1)
+        : 'All';
+      
+      const initialPush = window.DataLayerHelper.buildBasePush({
+        event: 'productImpression',
+        pageType: 'plp',
+        pageName: `Product Listing - ${catLabel}`,
+        url: window.location.href,
+        extra: { productList }
+      });
+      window.adobeDataLayer.push(initialPush);
+      
+      // Store filtered products for rendering
+      window.filteredProducts = filtered;
+      window.selectedCategory = category || 'all';
+      window.searchQuery = searchQuery;
+    })();
+  </script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/e91b4a5d371e/launch-889ca7a6e623-development.min.js" async></script>
+</head>
+<body data-page-type="plp">
+  <header>
+    <div class="topbar">
+      <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
+      <form class="search" method="GET" action="./plp.html">
+        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more" aria-label="Search products" id="search-input" value="" />
+        <button type="submit">Search</button>
+      </form>
+      <div class="actions">
+        <span id="user-info"></span>
+        <a href="./account.html" aria-label="Account" id="account-link">Account</a>
+        <a href="./logout.html" aria-label="Logout" id="logout-link" style="display:none;">Logout</a>
+        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge" data-role="cart-count">0</span></a>
+      </div>
+    </div>
+    <div class="categories">
+      <a href="./plp.html?cat=electronics">Electronics</a>
+      <a href="./plp.html?cat=mobiles">Mobiles</a>
+      <a href="./plp.html?cat=fashion">Fashion</a>
+      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=beauty">Beauty</a>
+      <a href="./plp.html?cat=all">All</a>
+    </div>
+  </header>
+  <main>
+  <div class="plp-background" style="background-image: url('https://images.unsplash.com/photo-1581091012184-5c4c11c3f024');"></div>
+  <div class="plp-toolbar">
+    <div class="muted" id="product-count">Showing 0 items</div>
+    <div class="filters">
+      <select id="category-select">
+        <option>Category: all</option>
+      </select>
+      <select>
+        <option>Sort: Most Popular</option>
+        <option>Sort: Price Low → High</option>
+      </select>
+    </div>
+  </div>
+  <h2 id="category-title">All categories</h2>
+  <p class="muted" id="category-description">Curated deals across ShopKart.</p>
+  <div class="grid plp-grid" id="products-grid">
+    <!-- Will be populated by JavaScript -->
+  </div>
+  </main>
+  <footer>
+    <p>ShopKart marketplace</p>
+  </footer>
+  <script src="./public/adl-utils.js"></script>
+  <script src="./public/client.js"></script>
+  <script>
+    (function() {
+      if (typeof window.filteredProducts === 'undefined') return;
+      
+      const products = window.filteredProducts;
+      const selectedCategory = window.selectedCategory || 'all';
+      const searchQuery = window.searchQuery || '';
+      
+      // Update UI
+      document.getElementById('product-count').textContent = `Showing ${products.length} items`;
+      document.getElementById('category-select').innerHTML = `<option>Category: ${selectedCategory}</option>`;
+      
+      const catLabel = selectedCategory && selectedCategory !== 'all'
+        ? selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)
+        : 'All categories';
+      document.getElementById('category-title').textContent = catLabel;
+      document.getElementById('category-description').textContent = `Curated deals across ${selectedCategory && selectedCategory !== 'all' ? selectedCategory : 'ShopKart'}.`;
+      
+      // Set search input value
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) {
+        searchInput.value = searchQuery;
+      }
+      
+      // Render products
+      const grid = document.getElementById('products-grid');
+      if (grid) {
+        if (products.length === 0) {
+          grid.innerHTML = '<p class="muted">No products found in this category. Try All.</p>';
+        } else {
+          grid.innerHTML = '';
+          products.forEach((product, idx) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+              <div class="card-image">
+                <a href="./pdp.html?id=${product.id}" 
+                   data-action="view-product"
+                   data-product-id="${product.id}"
+                   data-product-name="${product.name}"
+                   data-product-category="${product.category}"
+                   data-brand="${product.brand}"
+                   data-price="${product.price}"
+                   data-position="${product.position}"
+                   data-href="./pdp.html?id=${product.id}"
+                   style="display:block;width:100%;height:100%;">
+                  <img src="${product.image}" alt="${product.name}" onerror="this.onerror=null; this.src=this.src.startsWith('http') ? './public/images/placeholders/missing-banner.png' : this.src;" />
+                </a>
+                ${product.badge ? `<div class="badge">${product.badge}</div>` : ''}
+                <div class="brand-pill">${product.brand}</div>
+              </div>
+              <h3>${product.name}</h3>
+              <p class="muted">${product.category}</p>
+              <p class="price">$${product.price} <span class="muted" style="text-decoration:line-through;">$${product.mrp}</span></p>
+              <div class="stars">★★★★☆</div>
+              <a
+                class="button secondary"
+                href="./pdp.html?id=${product.id}"
+                data-action="view-product"
+                data-product-id="${product.id}"
+                data-product-name="${product.name}"
+                data-product-category="${product.category}"
+                data-brand="${product.brand}"
+                data-price="${product.price}"
+                data-position="${product.position}"
+                 data-href="./pdp.html?id=${product.id}"
+              >
+                View
+              </a>
+            `;
+            grid.appendChild(card);
+          });
+        }
+      }
+
+      // Update user info
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      const userInfo = document.getElementById('user-info');
+      const accountLink = document.getElementById('account-link');
+      const logoutLink = document.getElementById('logout-link');
+      
+      if (user) {
+        if (userInfo) userInfo.textContent = user.name;
+        if (accountLink) accountLink.style.display = 'none';
+        if (logoutLink) logoutLink.style.display = 'inline';
+      } else {
+        if (userInfo) userInfo.textContent = '';
+        if (accountLink) accountLink.style.display = 'inline';
+        if (logoutLink) logoutLink.style.display = 'none';
+      }
+    })();
+  </script>
+</body>
+</html>

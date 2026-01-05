@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cart | ShopKart</title>
+  <link rel="stylesheet" href="./public/styles.css" />
+  <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
+  <script src="./public/products.js"></script>
+  <script src="./public/static-data.js"></script>
+  <script src="./public/data-layer-helper.js"></script>
+  <script>
+    (function() {
+      const cart = window.DataLayerHelper.cartState();
+      const initialPush = window.DataLayerHelper.buildBasePush({
+        event: 'scView',
+        pageType: 'cart',
+        pageName: 'Cart',
+        url: window.location.href,
+        extra: { cart }
+      });
+      window.adobeDataLayer.push(initialPush);
+    })();
+  </script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/e91b4a5d371e/launch-889ca7a6e623-development.min.js" async></script>
+</head>
+<body data-page-type="cart">
+  <header>
+    <div class="topbar">
+      <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
+      <form class="search" method="GET" action="./plp.html">
+        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more" aria-label="Search products" value="" />
+        <button type="submit">Search</button>
+      </form>
+      <div class="actions">
+        <span id="user-info"></span>
+        <a href="./account.html" aria-label="Account" id="account-link">Account</a>
+        <a href="./logout.html" aria-label="Logout" id="logout-link" style="display:none;">Logout</a>
+        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge" data-role="cart-count">0</span></a>
+      </div>
+    </div>
+    <div class="categories">
+      <a href="./plp.html?cat=electronics">Electronics</a>
+      <a href="./plp.html?cat=mobiles">Mobiles</a>
+      <a href="./plp.html?cat=fashion">Fashion</a>
+      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=beauty">Beauty</a>
+      <a href="./plp.html?cat=all">All</a>
+    </div>
+  </header>
+  <main>
+  <h2>Your Cart</h2>
+  <div id="cart-content">
+    <p>Loading cart...</p>
+  </div>
+  </main>
+  <footer>
+    <p>ShopKart marketplace</p>
+  </footer>
+  <script src="./public/adl-utils.js"></script>
+  <script src="./public/client.js"></script>
+  <script>
+    (function() {
+      function renderCart() {
+        const cart = window.StaticData.getCart();
+        const total = window.StaticData.getCartTotal();
+        const container = document.getElementById('cart-content');
+        
+        if (!cart.items || cart.items.length === 0) {
+          container.innerHTML = '<p>Your cart is empty. Browse the <a href="./plp.html">catalog</a>.</p>';
+          return;
+        }
+        
+        let html = '<table><thead><tr><th></th><th>Product</th><th>Price</th><th>Qty</th><th>Subtotal</th><th></th></tr></thead><tbody>';
+        cart.items.forEach((item) => {
+          html += `
+            <tr>
+              <td style="width:80px;">
+                ${item.image ? `<img src="${item.image}" alt="${item.productName}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;" />` : ''}
+              </td>
+              <td>${item.productName}<br/><span class="muted">${item.brand}</span></td>
+              <td>$${item.price}</td>
+              <td>${item.qty}</td>
+              <td>$${(item.price * item.qty).toFixed(2)}</td>
+              <td>
+                <button class="button secondary" data-action="remove-item" data-product-id="${item.productId}">Remove</button>
+              </td>
+            </tr>
+          `;
+        });
+        html += '</tbody></table>';
+        html += `<div class="summary">
+          <p><strong>Total:</strong> $${total.toFixed(2)}</p>
+          <a class="button primary" href="./checkout.html">Proceed to checkout</a>
+        </div>`;
+        container.innerHTML = html;
+        
+        // Re-attach event listeners
+        document.querySelectorAll('[data-action="remove-item"]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const productId = btn.dataset.productId;
+            window.StaticData.removeFromCart(productId);
+            renderCart();
+            const cartState = window.DataLayerHelper.cartState();
+            const count = cartState.items.reduce((sum, item) => sum + item.qty, 0);
+            document.querySelector('[data-role="cart-count"]').textContent = count;
+            const dl = window.adobeDataLayer || [];
+            dl.push({
+              event: 'scRemove',
+              eventInfo: { eventName: 'scRemove' },
+              custData: window.DataLayerHelper.buildBasePush({ event: 'scRemove', pageType: 'cart', pageName: 'Cart', url: window.location.href }).custData,
+              page: {
+                language: 'en',
+                pageName: 'Cart',
+                pageType: 'cart',
+                url: window.location.href
+              },
+              timestamp: new Date().toISOString(),
+              cart: cartState
+            });
+          });
+        });
+      }
+      
+      renderCart();
+      
+      // Update user info
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      const userInfo = document.getElementById('user-info');
+      const accountLink = document.getElementById('account-link');
+      const logoutLink = document.getElementById('logout-link');
+      
+      if (user) {
+        if (userInfo) userInfo.textContent = user.name;
+        if (accountLink) accountLink.style.display = 'none';
+        if (logoutLink) logoutLink.style.display = 'inline';
+      } else {
+        if (userInfo) userInfo.textContent = '';
+        if (accountLink) accountLink.style.display = 'inline';
+        if (logoutLink) logoutLink.style.display = 'none';
+      }
+    })();
+  </script>
+</body>
+</html>

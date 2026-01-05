@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Detail | ShopKart</title>
+  <link rel="stylesheet" href="./public/styles.css" />
+  <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
+  <script src="./public/products.js"></script>
+  <script src="./public/static-data.js"></script>
+  <script src="./public/data-layer-helper.js"></script>
+  <script>
+    (function() {
+      // Get product ID from URL - try query param first, then path
+      const urlParams = new URLSearchParams(window.location.search);
+      let productId = urlParams.get('id');
+      
+      // If no query param, try to extract from path (for /pdp/{id}.html)
+      if (!productId) {
+        const pathMatch = window.location.pathname.match(/\/pdp\/([^\/]+)\.html$/);
+        if (pathMatch) {
+          productId = pathMatch[1];
+        }
+      }
+      
+      if (!productId || typeof PRODUCTS === 'undefined') {
+        window.location.href = './index.html';
+        return;
+      }
+      
+      const product = PRODUCTS.find(p => p.id === productId);
+      if (!product) {
+        window.location.href = './index.html';
+        return;
+      }
+      
+      // Store product for rendering
+      window.currentProduct = product;
+      
+      const initialPush = window.DataLayerHelper.buildBasePush({
+        event: 'productDetail',
+        pageType: 'pdp',
+        pageName: `PDP - ${product.name}`,
+        url: window.location.href,
+        extra: {
+          product: [{
+            productId: product.id,
+            productName: product.name,
+            productCategory: product.category,
+            brand: product.brand,
+            price: product.price,
+            position: product.position,
+            quantity: 1
+          }]
+        }
+      });
+      window.adobeDataLayer.push(initialPush);
+      
+      // Update title
+      document.title = `${product.name} | ShopKart`;
+    })();
+  </script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/e91b4a5d371e/launch-889ca7a6e623-development.min.js" async></script>
+</head>
+<body data-page-type="pdp">
+  <header>
+    <div class="topbar">
+      <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
+      <form class="search" method="GET" action="./plp.html">
+        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more" aria-label="Search products" value="" />
+        <button type="submit">Search</button>
+      </form>
+      <div class="actions">
+        <span id="user-info"></span>
+        <a href="./account.html" aria-label="Account" id="account-link">Account</a>
+        <a href="./logout.html" aria-label="Logout" id="logout-link" style="display:none;">Logout</a>
+        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge" data-role="cart-count">0</span></a>
+      </div>
+    </div>
+    <div class="categories">
+      <a href="./plp.html?cat=electronics">Electronics</a>
+      <a href="./plp.html?cat=mobiles">Mobiles</a>
+      <a href="./plp.html?cat=fashion">Fashion</a>
+      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=beauty">Beauty</a>
+      <a href="./plp.html?cat=all">All</a>
+    </div>
+  </header>
+  <main>
+  <div class="pdp-background" style="background-image: url('https://images.unsplash.com/photo-1581091012184-5c4c11c3f024');"></div>
+  <div class="grid pdp-grid" id="pdp-content">
+    <!-- Will be populated by JavaScript -->
+    <p>Loading product...</p>
+  </div>
+  </main>
+  <footer>
+    <p>ShopKart marketplace</p>
+  </footer>
+  <script src="./public/adl-utils.js"></script>
+  <script src="./public/client.js"></script>
+  <script>
+    (function() {
+      if (typeof window.currentProduct === 'undefined') {
+        document.getElementById('pdp-content').innerHTML = '<p>Product not found. <a href="./index.html">Return to home</a></p>';
+        return;
+      }
+      
+      const product = window.currentProduct;
+      const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
+      const bulletsHtml = product.bullets.map(b => `<li>${b}</li>`).join('');
+      const specsHtml = product.specs.map(spec => `<tr><th>${spec[0]}</th><td>${spec[1]}</td></tr>`).join('');
+      
+      document.getElementById('pdp-content').innerHTML = `
+        <div class="pdp-image">
+          <img src="${product.image}" alt="${product.name}" onerror="this.onerror=null; this.src=this.src.startsWith('http') ? './public/images/placeholders/missing-banner.png' : this.src;" />
+          ${product.badge ? `<div class="badge">${product.badge}</div>` : ''}
+        </div>
+        <div class="pdp-content">
+          <p class="muted">${product.brand} · ${product.category}</p>
+          <h2>${product.name}</h2>
+          <p>${product.description}</p>
+          <div class="price-block">
+            <div class="deal-price">$${product.price}</div>
+            <div class="mrp">MRP: $${product.mrp}</div>
+            <div class="discount">${discount}% off</div>
+          </div>
+          <ul class="bullets">
+            ${bulletsHtml}
+          </ul>
+          <div class="summary">
+            <form id="add-to-cart-form"
+          data-product-name="${product.name}"
+          data-category="${product.category}"
+          data-brand="${product.brand}"
+          data-price="${product.price}"
+          data-position="${product.position}"
+        >
+          <input type="hidden" name="id" value="${product.id}" />
+          <div class="form-group">
+            <label for="qty">Quantity</label>
+            <input id="qty" name="qty" type="number" min="1" value="1" />
+          </div>
+          <button class="button primary" type="submit">Add to cart</button>
+        </form>
+        <div id="cart-notice" class="notice" style="display:none;margin-top:12px;"></div>
+      </div>
+        </div>
+        <section class="deck">
+          <h3>Specifications</h3>
+          <table class="spec-table">
+            <tbody>
+              ${specsHtml}
+            </tbody>
+          </table>
+        </section>
+      `;
+      
+      // Update user info
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      const userInfo = document.getElementById('user-info');
+      const accountLink = document.getElementById('account-link');
+      const logoutLink = document.getElementById('logout-link');
+      
+      if (user) {
+        if (userInfo) userInfo.textContent = user.name;
+        if (accountLink) accountLink.style.display = 'none';
+        if (logoutLink) logoutLink.style.display = 'inline';
+      } else {
+        if (userInfo) userInfo.textContent = '';
+        if (accountLink) accountLink.style.display = 'inline';
+        if (logoutLink) logoutLink.style.display = 'none';
+      }
+    })();
+  </script>
+</body>
+</html>

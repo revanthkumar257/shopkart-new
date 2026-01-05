@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkout | ShopKart</title>
+  <link rel="stylesheet" href="./public/styles.css" />
+  <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
+  <script src="./public/products.js"></script>
+  <script src="./public/static-data.js"></script>
+  <script src="./public/data-layer-helper.js"></script>
+  <script>
+    (function() {
+      const cart = window.DataLayerHelper.cartState();
+      const initialPush = window.DataLayerHelper.buildBasePush({
+        event: 'scCheckout',
+        pageType: 'checkout',
+        pageName: 'Checkout',
+        url: window.location.href,
+        extra: { cart }
+      });
+      window.adobeDataLayer.push(initialPush);
+    })();
+  </script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/e91b4a5d371e/launch-889ca7a6e623-development.min.js" async></script>
+</head>
+<body data-page-type="checkout">
+  <header>
+    <div class="topbar">
+      <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
+      <form class="search" method="GET" action="./plp.html">
+        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more" aria-label="Search products" value="" />
+        <button type="submit">Search</button>
+      </form>
+      <div class="actions">
+        <span id="user-info"></span>
+        <a href="./account.html" aria-label="Account" id="account-link">Account</a>
+        <a href="./logout.html" aria-label="Logout" id="logout-link" style="display:none;">Logout</a>
+        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge" data-role="cart-count">0</span></a>
+      </div>
+    </div>
+    <div class="categories">
+      <a href="./plp.html?cat=electronics">Electronics</a>
+      <a href="./plp.html?cat=mobiles">Mobiles</a>
+      <a href="./plp.html?cat=fashion">Fashion</a>
+      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=beauty">Beauty</a>
+      <a href="./plp.html?cat=all">All</a>
+    </div>
+  </header>
+  <main>
+  <h2>Checkout</h2>
+  <div id="checkout-content">
+    <p>Loading...</p>
+  </div>
+  </main>
+  <footer>
+    <p>ShopKart marketplace</p>
+  </footer>
+  <script src="./public/adl-utils.js"></script>
+  <script src="./public/client.js"></script>
+  <script>
+    (function() {
+      function renderCheckout() {
+        const cart = window.StaticData.getCart();
+        const total = window.StaticData.getCartTotal();
+        const user = window.StaticData.getUser();
+        const container = document.getElementById('checkout-content');
+        
+        if (!cart.items || cart.items.length === 0) {
+          container.innerHTML = '<p>Your cart is empty. <a href="./plp.html">Add items</a> to continue.</p>';
+          return;
+        }
+        
+        const error = new URLSearchParams(window.location.search).get('error');
+        let html = '';
+        if (error) {
+          html += `<div class="notice" style="background:#fee;border-color:#fcc;color:#c00;">${error}</div>`;
+        }
+        
+        html += `<div class="summary">
+          <p><strong>Total due:</strong> $${total.toFixed(2)}</p>
+          <form id="checkout-form">
+            <h3>Shipping Information</h3>
+            <div class="form-group">
+              <label for="name">Full Name *</label>
+              <input id="name" name="name" required placeholder="Jane Doe" value="${user ? (user.name || '') : ''}" />
+            </div>
+            <div class="form-group">
+              <label for="email">Email *</label>
+              <input id="email" name="email" type="email" required placeholder="jane@example.com" value="${user ? (user.email || '') : ''}" />
+            </div>
+            <div class="form-group">
+              <label for="phone">Phone Number *</label>
+              <input id="phone" name="phone" required placeholder="+1 234 567 8900" value="" />
+            </div>
+            <div class="form-group">
+              <label for="addressLine1">Address Line 1 *</label>
+              <input id="addressLine1" name="addressLine1" required placeholder="123 Main Street" value="" />
+            </div>
+            <div class="form-group">
+              <label for="addressLine2">Address Line 2</label>
+              <input id="addressLine2" name="addressLine2" placeholder="Apt 4B" value="" />
+            </div>
+            <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div>
+                <label for="city">City *</label>
+                <input id="city" name="city" required placeholder="New York" value="" />
+              </div>
+              <div>
+                <label for="state">State *</label>
+                <input id="state" name="state" required placeholder="NY" value="" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="postalCode">Postal Code *</label>
+              <input id="postalCode" name="postalCode" required placeholder="10001" value="" />
+            </div>
+            
+            <h3 style="margin-top:24px;">Payment Method *</h3>
+            <div class="form-group" style="display:flex;flex-direction:column;gap:8px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="radio" name="paymentMethod" value="Card" required checked />
+                <span>Credit/Debit Card</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="radio" name="paymentMethod" value="UPI" required />
+                <span>UPI</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="radio" name="paymentMethod" value="COD" required />
+                <span>Cash on Delivery (COD)</span>
+              </label>
+            </div>
+            
+            <button class="button primary" type="submit" style="margin-top:16px;">Place Order</button>
+          </form>
+        </div>`;
+        container.innerHTML = html;
+        
+        // Handle form submission
+        document.getElementById('checkout-form').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+          const data = {
+            name: formData.get('name'),
+            email: formData.get('email'),
+            phone: formData.get('phone'),
+            addressLine1: formData.get('addressLine1'),
+            addressLine2: formData.get('addressLine2'),
+            city: formData.get('city'),
+            state: formData.get('state'),
+            postalCode: formData.get('postalCode'),
+            paymentMethod: formData.get('paymentMethod')
+          };
+          
+          // Validation
+          const errors = [];
+          if (!data.name || !data.name.trim()) errors.push('Name is required');
+          if (!data.email || !data.email.trim()) errors.push('Email is required');
+          if (!data.addressLine1 || !data.addressLine1.trim()) errors.push('Address line 1 is required');
+          if (!data.city || !data.city.trim()) errors.push('City is required');
+          if (!data.state || !data.state.trim()) errors.push('State is required');
+          if (!data.postalCode || !data.postalCode.trim()) errors.push('Postal code is required');
+          if (!data.phone || !data.phone.trim()) errors.push('Phone number is required');
+          if (!data.paymentMethod) errors.push('Payment method is required');
+          
+          if (errors.length > 0) {
+            window.location.href = `./checkout.html?error=${encodeURIComponent(errors.join(', '))}`;
+            return;
+          }
+          
+          // Create order
+          const orderId = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
+          const revenue = total;
+          const order = {
+            id: orderId,
+            revenue,
+            products: cart.items.map(item => ({
+              productId: item.productId,
+              productName: item.productName,
+              price: item.price,
+              qty: item.qty,
+              image: item.image,
+              brand: item.brand
+            })),
+            customerName: data.name.trim(),
+            email: data.email.trim(),
+            shippingAddress: {
+              addressLine1: data.addressLine1.trim(),
+              addressLine2: data.addressLine2?.trim() || '',
+              city: data.city.trim(),
+              state: data.state.trim(),
+              postalCode: data.postalCode.trim(),
+              phone: data.phone.trim()
+            },
+            paymentMethod: data.paymentMethod,
+            customerId: user ? user.id : null,
+            createdAt: new Date().toISOString()
+          };
+          
+          window.StaticData.setOrder(orderId, order);
+          window.StaticData.clearCart();
+          
+          window.location.href = `./thankyou.html?orderId=${orderId}`;
+        });
+      }
+      
+      renderCheckout();
+      
+      // Update user info
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      const userInfo = document.getElementById('user-info');
+      const accountLink = document.getElementById('account-link');
+      const logoutLink = document.getElementById('logout-link');
+      
+      if (user) {
+        if (userInfo) userInfo.textContent = user.name;
+        if (accountLink) accountLink.style.display = 'none';
+        if (logoutLink) logoutLink.style.display = 'inline';
+      } else {
+        if (userInfo) userInfo.textContent = '';
+        if (accountLink) accountLink.style.display = 'inline';
+        if (logoutLink) logoutLink.style.display = 'none';
+      }
+    })();
+  </script>
+</body>
+</html>
