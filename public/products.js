@@ -325,3 +325,8 @@ const PRODUCTS = [
     image: "/images/beauty/POND's Bright Beauty Infused with vitamin B3 & Niacinamide for Anti Dullness & glass skin shine Face Wash  (200 g).png"
   }
 ];
+
+// Make PRODUCTS available globally for client.js
+if (typeof window !== 'undefined') {
+  window.PRODUCTS = PRODUCTS;
+}

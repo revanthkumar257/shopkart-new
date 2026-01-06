@@ -31,8 +31,14 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const fetchCart = () => {
+    if (!window.StaticData) {
+      return { items: [], total: 0 };
+    }
     const cart = window.StaticData.getCart();
-    const count = cart.items?.reduce((sum, item) => sum + item.qty, 0) || 0;
+    if (!cart.items || !Array.isArray(cart.items)) {
+      cart.items = [];
+    }
+    const count = cart.items.reduce((sum, item) => sum + item.qty, 0) || 0;
     updateCartBadge(count);
     return {
       items: cart.items.map(item => ({
@@ -92,6 +98,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (addToCartForm) {
     addToCartForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      
+      if (!window.StaticData) {
+        console.error('StaticData not available');
+        return;
+      }
+      
       const formData = new FormData(addToCartForm);
       const productId = formData.get('id');
       const qty = Number(formData.get('qty')) || 1;
@@ -99,12 +111,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const price = Number(addToCartForm.dataset.price);
 
       // Find product from PRODUCTS array
+      if (!window.PRODUCTS || !Array.isArray(window.PRODUCTS)) {
+        console.error('PRODUCTS array not available');
+        return;
+      }
       const product = window.PRODUCTS.find(p => p.id === productId);
       if (product) {
         window.StaticData.addToCart(productId, qty, product);
+      } else {
+        console.error('Product not found:', productId);
+        return;
       }
       const cartState = fetchCart();
-      const count = cartState.items?.reduce((sum, item) => sum + item.qty, 0) || 0;
+      if (!cartState.items || !Array.isArray(cartState.items)) {
+        cartState.items = [];
+      }
+      const count = cartState.items.reduce((sum, item) => sum + item.qty, 0) || 0;
       updateCartBadge(count);
 
       pushEvent({

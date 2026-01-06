@@ -29,6 +29,9 @@
 
     addToCart: function(productId, qty, product) {
       const cart = this.getCart();
+      if (!cart.items || !Array.isArray(cart.items)) {
+        cart.items = [];
+      }
       const existing = cart.items.find(item => item.productId === productId);
       
       if (existing) {
@@ -61,11 +64,17 @@
 
     getCartCount: function() {
       const cart = this.getCart();
+      if (!cart.items || !Array.isArray(cart.items)) {
+        return 0;
+      }
       return cart.items.reduce((sum, item) => sum + item.qty, 0);
     },
 
     getCartTotal: function() {
       const cart = this.getCart();
+      if (!cart.items || !Array.isArray(cart.items)) {
+        return 0;
+      }
       return cart.items.reduce((sum, item) => sum + item.price * item.qty, 0);
     },
 
