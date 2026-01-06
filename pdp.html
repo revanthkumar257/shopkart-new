@@ -234,6 +234,16 @@
         });
       }
       
+      // Initialize cart count on page load
+      if (window.StaticData) {
+        const cart = window.StaticData.getCart();
+        const cartCount = cart.items?.reduce((sum, item) => sum + item.qty, 0) || 0;
+        const cartBadge = document.querySelector('[data-role="cart-count"]');
+        if (cartBadge) {
+          cartBadge.textContent = cartCount;
+        }
+      }
+      
       // Update user info
       const user = window.StaticData ? window.StaticData.getUser() : null;
       const userInfo = document.getElementById('user-info');
