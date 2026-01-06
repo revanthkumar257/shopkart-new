@@ -155,6 +155,85 @@
         </section>
       `;
       
+      // Attach add to cart event listener after form is created
+      const addToCartForm = document.querySelector('#add-to-cart-form');
+      if (addToCartForm) {
+        addToCartForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const formData = new FormData(addToCartForm);
+          const productId = formData.get('id');
+          const qty = Number(formData.get('qty')) || 1;
+          const productName = addToCartForm.dataset.productName;
+          const price = Number(addToCartForm.dataset.price);
+
+          // Find product from PRODUCTS array
+          const product = window.PRODUCTS.find(p => p.id === productId);
+          if (product) {
+            window.StaticData.addToCart(productId, qty, product);
+          }
+          const cartState = window.StaticData.getCart();
+          const count = cartState.items?.reduce((sum, item) => sum + item.qty, 0) || 0;
+          const cartBadge = document.querySelector('[data-role="cart-count"]');
+          if (cartBadge) cartBadge.textContent = count;
+
+          const dl = window.adobeDataLayer || [];
+          const getCustData = () => {
+            if (dl.length > 0 && dl[0].custData) {
+              return dl[0].custData;
+            }
+            return {
+              custId: '',
+              emailID_plain: '',
+              loginMethod: 'guest',
+              loginStatus: 'anonymous',
+              mobileNo_plain: ''
+            };
+          };
+          const custData = getCustData();
+          const cartStateForEvent = {
+            items: cartState.items.map(item => ({
+              productId: item.productId,
+              productName: item.productName,
+              price: item.price,
+              qty: item.qty,
+              image: item.image,
+              brand: item.brand
+            })),
+            total: Number(window.StaticData.getCartTotal().toFixed(2))
+          };
+          dl.push({
+            event: 'scAdd',
+            eventInfo: { eventName: 'scAdd' },
+            custData: custData,
+            page: {
+              language: 'en',
+              pageName: `PDP - ${productName}`,
+              pageType: 'pdp',
+              url: window.location.href
+            },
+            timestamp: new Date().toISOString(),
+            product: [
+              {
+                productId,
+                productName,
+                productCategory: addToCartForm.dataset.category,
+                brand: addToCartForm.dataset.brand,
+                price,
+                position: Number(addToCartForm.dataset.position),
+                quantity: qty
+              }
+            ],
+            cart: cartStateForEvent
+          });
+
+          const notice = document.querySelector('#cart-notice');
+          if (notice) {
+            notice.textContent = 'Added to cart. Proceed to cart or keep shopping.';
+            notice.style.display = 'block';
+          }
+        });
+      }
+      
       // Update user info
       const user = window.StaticData ? window.StaticData.getUser() : null;
       const userInfo = document.getElementById('user-info');
