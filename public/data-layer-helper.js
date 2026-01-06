@@ -42,6 +42,9 @@
     cartState: function() {
       if (!window.StaticData) return { items: [], total: 0 };
       const cart = window.StaticData.getCart();
+      if (!cart.items || !Array.isArray(cart.items)) {
+        return { items: [], total: 0 };
+      }
       return {
         items: cart.items.map(item => ({
           productId: item.productId,
