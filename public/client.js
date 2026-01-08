@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Determine link type and position
     let linkType = 'button';
-    let linkPosition = 'content';
+    let linkPosition = 'body';
     
     if (element.closest('header')) {
       linkPosition = 'header';
@@ -96,12 +96,14 @@ document.addEventListener('DOMContentLoaded', () => {
         linkType = 'nav';
       } else if (element.closest('.actions')) {
         linkType = 'nav';
+      } else {
+        linkType = 'nav';
       }
     } else if (element.closest('.hero-carousel')) {
-      linkPosition = 'hero';
+      linkPosition = 'body';
       linkType = 'cta';
     } else if (element.closest('.category-banners')) {
-      linkPosition = 'hero';
+      linkPosition = 'body';
       linkType = 'banner';
     } else if (element.closest('.card') || element.closest('.deal-card')) {
       linkPosition = 'product-tile';
@@ -127,120 +129,135 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  // Product click handler (for both buttons and images)
-  const handleProductClick = (element, e) => {
-    handleLinkClick(element, e);
-    e.preventDefault();
-    const data = element.dataset;
-    setTimeout(() => {
-      window.location.href = data.href;
-    }, 120);
-  };
-
-  // PLP/Home product click (buttons and images)
-  document.querySelectorAll('[data-action="view-product"]').forEach((btn) => {
-    btn.addEventListener('click', (e) => handleProductClick(btn, e));
-  });
-
-  // Add to cart on PDP
-  const addToCartForm = document.querySelector('#add-to-cart-form');
-  if (addToCartForm) {
-    addToCartForm.addEventListener('submit', (e) => {
-      e.preventDefault();
+  // Add to cart handler - SEPARATE from linkClicked, fires once per click
+  let addToCartHandlerAttached = false;
+  
+  const attachAddToCartHandler = () => {
+    const addToCartForm = document.querySelector('#add-to-cart-form');
+    if (addToCartForm && !addToCartHandlerAttached) {
+      addToCartHandlerAttached = true;
       
-      if (!window.StaticData) {
-        console.error('StaticData not available');
-        return;
-      }
-      
-      const formData = new FormData(addToCartForm);
-      const productId = formData.get('id');
-      const qty = Number(formData.get('qty')) || 1;
-      const productName = addToCartForm.dataset.productName;
-      const price = Number(addToCartForm.dataset.price);
-
-      // Find product from PRODUCTS array
-      if (!window.PRODUCTS || !Array.isArray(window.PRODUCTS)) {
-        console.error('PRODUCTS array not available');
-        return;
-      }
-      const product = window.PRODUCTS.find(p => p.id === productId);
-      if (product) {
-        window.StaticData.addToCart(productId, qty, product);
-      } else {
-        console.error('Product not found:', productId);
-        return;
-      }
-      const cartState = fetchCart();
-      if (!cartState.items || !Array.isArray(cartState.items)) {
-        cartState.items = [];
-      }
-      const count = cartState.items.reduce((sum, item) => sum + item.qty, 0) || 0;
-      updateCartBadge(count);
-
-      const category = addToCartForm.dataset.category || '';
-      const dl = window.adobeDataLayer || [];
-      dl.push({
-        event: "addToCart",
-        xdmCommerce: {
-          product: {
-            productID: productId,
-            productName: productName,
-            category: category,
-            price: price,
-            quantity: qty
-          }
+      addToCartForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Prevent multiple submissions
+        if (addToCartForm.dataset.processing === 'true') {
+          return;
         }
-      });
+        addToCartForm.dataset.processing = 'true';
+        
+        if (!window.StaticData) {
+          console.error('StaticData not available');
+          addToCartForm.dataset.processing = 'false';
+          return;
+        }
+        
+        const formData = new FormData(addToCartForm);
+        const productId = formData.get('id');
+        const qty = Number(formData.get('qty')) || 1;
+        const productName = addToCartForm.dataset.productName;
+        const price = Number(addToCartForm.dataset.price);
 
-      const notice = document.querySelector('#cart-notice');
-      if (notice) {
-        notice.textContent = 'Added to cart. Proceed to cart or keep shopping.';
-        notice.style.display = 'block';
-      }
+        // Find product from PRODUCTS array
+        if (!window.PRODUCTS || !Array.isArray(window.PRODUCTS)) {
+          console.error('PRODUCTS array not available');
+          addToCartForm.dataset.processing = 'false';
+          return;
+        }
+        const product = window.PRODUCTS.find(p => p.id === productId);
+        if (!product) {
+          console.error('Product not found:', productId);
+          addToCartForm.dataset.processing = 'false';
+          return;
+        }
+        
+        // Add to cart
+        window.StaticData.addToCart(productId, qty, product);
+        const cartState = fetchCart();
+        const count = cartState.items.reduce((sum, item) => sum + item.qty, 0) || 0;
+        updateCartBadge(count);
+
+        // Push addToCart event (ONLY ONCE, separate from linkClicked)
+        const category = addToCartForm.dataset.category || '';
+        const dl = window.adobeDataLayer || [];
+        dl.push({
+          event: "addToCart",
+          xdmCommerce: {
+            product: {
+              productID: productId,
+              productName: productName,
+              category: category,
+              price: price,
+              quantity: qty
+            }
+          }
+        });
+
+        const notice = document.querySelector('#cart-notice');
+        if (notice) {
+          notice.textContent = 'Added to cart. Proceed to cart or keep shopping.';
+          notice.style.display = 'block';
+        }
+        
+        // Reset processing flag after a short delay
+        setTimeout(() => {
+          addToCartForm.dataset.processing = 'false';
+        }, 500);
+      });
+    }
+  };
+  
+  // Try to attach immediately
+  attachAddToCartHandler();
+  
+  // Also try after DOM is fully loaded (in case form is created dynamically)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachAddToCartHandler);
+  } else {
+    // Use MutationObserver to catch dynamically added forms
+    const observer = new MutationObserver(() => {
+      attachAddToCartHandler();
     });
+    observer.observe(document.body, { childList: true, subtree: true });
   }
 
   // Remove from cart - handled in cart.html inline script
 
-  // Cart link open - handled by generic link click handler
-  const cartLinks = document.querySelectorAll('[data-role="cart-link"]');
-  cartLinks.forEach((link) => {
-    link.addEventListener('click', (e) => {
-      handleLinkClick(link, e);
-      e.preventDefault();
-      const target = link.getAttribute('href');
-      setTimeout(() => {
-        window.location.href = target;
-      }, 100);
-    });
-  });
-  
-  // Generic click handler for all links, buttons, and clickable elements
+  // GLOBAL CLICK HANDLER - ONE handler for ALL clicks
+  // Uses event delegation, fires linkClicked for every clickable element
   document.addEventListener('click', (e) => {
     const target = e.target.closest('a, button, [role="button"]');
     if (!target) return;
     
-    // Skip if already handled by specific handlers
-    if (target.hasAttribute('data-action') || 
-        target.closest('[data-action="view-product"]') || 
-        target.closest('[data-action="remove-item"]') ||
-        target.closest('#add-to-cart-form') ||
-        target.closest('#checkout-button') ||
-        target.closest('form') ||
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.tagName === 'SELECT') {
+    // Skip form inputs and selects (not clickable elements for tracking)
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
       return;
     }
     
-    // Don't track cart link clicks here (handled separately)
-    if (target.closest('[data-role="cart-link"]')) {
-      return;
-    }
-    
+    // Fire linkClicked for ALL clicks (header nav, buttons, product cards, Add to Cart, etc.)
+    // This fires BEFORE navigation or form submission
     handleLinkClick(target, e);
-  });
+    
+    // Special handling for Add to Cart button - let form submit handler fire addToCart
+    if (target.type === 'submit' && target.closest('#add-to-cart-form')) {
+      // linkClicked already fired above, form submit will fire addToCart
+      return;
+    }
+    
+    // Special handling for remove item - handled in cart.html
+    if (target.hasAttribute('data-action') && target.getAttribute('data-action') === 'remove-item') {
+      return;
+    }
+    
+    // Special handling for checkout button - handled in cart.html
+    if (target.closest('#checkout-button')) {
+      return;
+    }
+    
+    // For all other clicks (links, navigation), allow default behavior
+    // Navigation will proceed normally after linkClicked fires
+  }, true); // Use capture phase to fire BEFORE other handlers
 
   // Search form submission (ensure it navigates properly)
   const searchForm = document.querySelector('.search');
