@@ -20,32 +20,85 @@
         return;
       }
       
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      
       // Prevent duplicate purchase events on reload
       if (!order.purchaseEventPushed) {
-        const initialPush = window.DataLayerHelper.buildBasePush({
-          event: 'purchase',
-          pageType: 'thankyou',
-          pageName: 'Order Confirmation',
-          url: window.location.href,
-          extra: { order }
+        // Page loaded event first
+        window.adobeDataLayer.push({
+          event: "pageLoaded",
+          xdmPageLoad: {
+            custData: {
+              loginStatus: user ? "logged-in" : "guest",
+              platform: "desktop web",
+              language: "en"
+            },
+            web: {
+              webPageDetails: {
+                siteName: "shopkart",
+                pageName: "Order Confirmation",
+                pageType: "confirmation",
+                channel: "web"
+              }
+            }
+          }
         });
-        window.adobeDataLayer.push(initialPush);
+        
+        // Purchase event
+        const productsArray = order.products.map(p => {
+          // Find product in PRODUCTS array to get category
+          let category = "";
+          if (typeof PRODUCTS !== 'undefined') {
+            const product = PRODUCTS.find(prod => prod.id === p.productId);
+            category = product ? product.category : "";
+          }
+          return {
+            productID: p.productId,
+            productName: p.productName,
+            category: category,
+            price: p.price,
+            quantity: p.qty
+          };
+        });
+        
+        window.adobeDataLayer.push({
+          event: "purchase",
+          xdmCommerce: {
+            order: {
+              orderID: order.id,
+              totalValue: order.revenue,
+              currency: "USD"
+            },
+            products: productsArray
+          }
+        });
         order.purchaseEventPushed = true;
         window.StaticData.setOrder(orderId, order);
       } else {
-        const initialPush = window.DataLayerHelper.buildBasePush({
-          event: 'pageView',
-          pageType: 'thankyou',
-          pageName: 'Order Confirmation',
-          url: window.location.href
+        window.adobeDataLayer.push({
+          event: "pageLoaded",
+          xdmPageLoad: {
+            custData: {
+              loginStatus: user ? "logged-in" : "guest",
+              platform: "desktop web",
+              language: "en"
+            },
+            web: {
+              webPageDetails: {
+                siteName: "shopkart",
+                pageName: "Order Confirmation",
+                pageType: "confirmation",
+                channel: "web"
+              }
+            }
+          }
         });
-        window.adobeDataLayer.push(initialPush);
       }
       
       window.currentOrder = order;
     })();
   </script>
-  <script src="https://assets.adobedtm.com/21b53c73144b/e91b4a5d371e/launch-889ca7a6e623-development.min.js" async></script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js" async></script>
 </head>
 <body data-page-type="thankyou">
   <header>

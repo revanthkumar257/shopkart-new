@@ -16,16 +16,28 @@
         window.location.href = '/';
         return;
       }
-      const initialPush = window.DataLayerHelper.buildBasePush({
-        event: 'pageView',
-        pageType: 'signup',
-        pageName: 'Sign Up',
-        url: window.location.href
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      window.adobeDataLayer.push({
+        event: "pageLoaded",
+        xdmPageLoad: {
+          custData: {
+            loginStatus: user ? "logged-in" : "guest",
+            platform: "desktop web",
+            language: "en"
+          },
+          web: {
+            webPageDetails: {
+              siteName: "shopkart",
+              pageName: "Sign Up",
+              pageType: "home",
+              channel: "web"
+            }
+          }
+        }
       });
-      window.adobeDataLayer.push(initialPush);
     })();
   </script>
-  <script src="https://assets.adobedtm.com/21b53c73144b/e91b4a5d371e/launch-889ca7a6e623-development.min.js" async></script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js" async></script>
 </head>
 <body data-page-type="signup">
   <header>

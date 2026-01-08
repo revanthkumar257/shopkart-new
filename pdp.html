@@ -37,30 +37,31 @@
       // Store product for rendering
       window.currentProduct = product;
       
-      const initialPush = window.DataLayerHelper.buildBasePush({
-        event: 'productDetail',
-        pageType: 'pdp',
-        pageName: `PDP - ${product.name}`,
-        url: window.location.href,
-        extra: {
-          product: [{
-            productId: product.id,
-            productName: product.name,
-            productCategory: product.category,
-            brand: product.brand,
-            price: product.price,
-            position: product.position,
-            quantity: 1
-          }]
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      window.adobeDataLayer.push({
+        event: "pageLoaded",
+        xdmPageLoad: {
+          custData: {
+            loginStatus: user ? "logged-in" : "guest",
+            platform: "desktop web",
+            language: "en"
+          },
+          web: {
+            webPageDetails: {
+              siteName: "shopkart",
+              pageName: `PDP - ${product.name}`,
+              pageType: "pdp",
+              channel: "web"
+            }
+          }
         }
       });
-      window.adobeDataLayer.push(initialPush);
       
       // Update title
       document.title = `${product.name} | ShopKart`;
     })();
   </script>
-  <script src="https://assets.adobedtm.com/21b53c73144b/e91b4a5d371e/launch-889ca7a6e623-development.min.js" async></script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js" async></script>
 </head>
 <body data-page-type="pdp">
   <header>
@@ -193,53 +194,18 @@
           if (cartBadge) cartBadge.textContent = count;
 
           const dl = window.adobeDataLayer || [];
-          const getCustData = () => {
-            if (dl.length > 0 && dl[0].custData) {
-              return dl[0].custData;
-            }
-            return {
-              custId: '',
-              emailID_plain: '',
-              loginMethod: 'guest',
-              loginStatus: 'anonymous',
-              mobileNo_plain: ''
-            };
-          };
-          const custData = getCustData();
-          const cartStateForEvent = {
-            items: cartState.items.map(item => ({
-              productId: item.productId,
-              productName: item.productName,
-              price: item.price,
-              qty: item.qty,
-              image: item.image,
-              brand: item.brand
-            })),
-            total: Number(window.StaticData.getCartTotal().toFixed(2))
-          };
+          const category = addToCartForm.dataset.category || '';
           dl.push({
-            event: 'scAdd',
-            eventInfo: { eventName: 'scAdd' },
-            custData: custData,
-            page: {
-              language: 'en',
-              pageName: `PDP - ${productName}`,
-              pageType: 'pdp',
-              url: window.location.href
-            },
-            timestamp: new Date().toISOString(),
-            product: [
-              {
-                productId,
-                productName,
-                productCategory: addToCartForm.dataset.category,
-                brand: addToCartForm.dataset.brand,
-                price,
-                position: Number(addToCartForm.dataset.position),
+            event: "addToCart",
+            xdmCommerce: {
+              product: {
+                productID: productId,
+                productName: productName,
+                category: category,
+                price: price,
                 quantity: qty
               }
-            ],
-            cart: cartStateForEvent
+            }
           });
 
           const notice = document.querySelector('#cart-notice');

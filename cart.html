@@ -11,18 +11,28 @@
   <script src="./public/data-layer-helper.js"></script>
   <script>
     (function() {
-      const cart = window.DataLayerHelper.cartState();
-      const initialPush = window.DataLayerHelper.buildBasePush({
-        event: 'scView',
-        pageType: 'cart',
-        pageName: 'Cart',
-        url: window.location.href,
-        extra: { cart }
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      window.adobeDataLayer.push({
+        event: "pageLoaded",
+        xdmPageLoad: {
+          custData: {
+            loginStatus: user ? "logged-in" : "guest",
+            platform: "desktop web",
+            language: "en"
+          },
+          web: {
+            webPageDetails: {
+              siteName: "shopkart",
+              pageName: "Cart",
+              pageType: "cart",
+              channel: "web"
+            }
+          }
+        }
       });
-      window.adobeDataLayer.push(initialPush);
     })();
   </script>
-  <script src="https://assets.adobedtm.com/21b53c73144b/e91b4a5d371e/launch-889ca7a6e623-development.min.js" async></script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js" async></script>
 </head>
 <body data-page-type="cart">
   <header>
@@ -91,33 +101,61 @@
         html += '</tbody></table>';
         html += `<div class="summary">
           <p><strong>Total:</strong> $${total.toFixed(2)}</p>
-          <a class="button primary" href="./checkout.html">Proceed to checkout</a>
+          <a class="button primary" id="checkout-button" href="./checkout.html">Proceed to checkout</a>
         </div>`;
         container.innerHTML = html;
+        
+        // Attach checkout button event listener
+        const checkoutButton = document.getElementById('checkout-button');
+        if (checkoutButton) {
+          checkoutButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            const dl = window.adobeDataLayer || [];
+            const currentCart = window.StaticData.getCart();
+            const currentTotal = window.StaticData.getCartTotal();
+            const totalQuantity = currentCart.items.reduce((sum, item) => sum + item.qty, 0);
+            dl.push({
+              event: "beginCheckout",
+              xdmCommerce: {
+                cart: {
+                  totalQuantity: totalQuantity,
+                  totalValue: currentTotal
+                }
+              }
+            });
+            setTimeout(() => {
+              window.location.href = './checkout.html';
+            }, 100);
+          });
+        }
         
         // Re-attach event listeners
         document.querySelectorAll('[data-action="remove-item"]').forEach((btn) => {
           btn.addEventListener('click', () => {
             const productId = btn.dataset.productId;
+            // Find product info before removing
+            const cart = window.StaticData.getCart();
+            const itemToRemove = cart.items.find(item => item.productId === productId);
+            
             window.StaticData.removeFromCart(productId);
             renderCart();
-            const cartState = window.DataLayerHelper.cartState();
+            const cartState = window.StaticData.getCart();
             const count = cartState.items.reduce((sum, item) => sum + item.qty, 0);
             document.querySelector('[data-role="cart-count"]').textContent = count;
-            const dl = window.adobeDataLayer || [];
-            dl.push({
-              event: 'scRemove',
-              eventInfo: { eventName: 'scRemove' },
-              custData: window.DataLayerHelper.buildBasePush({ event: 'scRemove', pageType: 'cart', pageName: 'Cart', url: window.location.href }).custData,
-              page: {
-                language: 'en',
-                pageName: 'Cart',
-                pageType: 'cart',
-                url: window.location.href
-              },
-              timestamp: new Date().toISOString(),
-              cart: cartState
-            });
+            
+            if (itemToRemove) {
+              const dl = window.adobeDataLayer || [];
+              dl.push({
+                event: "removeFromCart",
+                xdmCommerce: {
+                  product: {
+                    productID: itemToRemove.productId,
+                    productName: itemToRemove.productName,
+                    quantity: 1
+                  }
+                }
+              });
+            }
           });
         });
       }
