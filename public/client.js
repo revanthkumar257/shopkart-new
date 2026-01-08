@@ -125,143 +125,118 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // Add to cart handler - SEPARATE from linkClicked, fires once per click
-  const addToCartProcessingFlags = new WeakSet();
-  const addToCartHandledForms = new WeakSet();
+  // Use single WeakSet for processing guard
+  const addToCartProcessing = new WeakSet();
   
-  const attachAddToCartHandler = () => {
-    const addToCartForm = document.querySelector('#add-to-cart-form');
-    if (addToCartForm && !addToCartHandledForms.has(addToCartForm)) {
-      addToCartHandledForms.add(addToCartForm);
-      
-      addToCartForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Prevent multiple submissions using WeakSet for better tracking
-        if (addToCartProcessingFlags.has(addToCartForm)) {
-          return;
-        }
-        addToCartProcessingFlags.add(addToCartForm);
-        
-        if (!window.StaticData) {
-          addToCartProcessingFlags.delete(addToCartForm);
-          return;
-        }
-        
-        const formData = new FormData(addToCartForm);
-        const productId = formData.get('id');
-        const qty = Number(formData.get('qty')) || 1;
-        const productName = addToCartForm.dataset.productName;
-        const price = Number(addToCartForm.dataset.price);
-
-        // Find product from PRODUCTS array
-        if (!window.PRODUCTS || !Array.isArray(window.PRODUCTS)) {
-          addToCartProcessingFlags.delete(addToCartForm);
-          return;
-        }
-        const product = window.PRODUCTS.find(p => p.id === productId);
-        if (!product) {
-          addToCartProcessingFlags.delete(addToCartForm);
-          return;
-        }
-        
-        // Add to cart
-        window.StaticData.addToCart(productId, qty, product);
-        const cartState = fetchCart();
-        const count = cartState.items.reduce((sum, item) => sum + item.qty, 0) || 0;
-        updateCartBadge(count);
-
-        // Push addToCart event (ONLY ONCE, separate from linkClicked)
-        const category = addToCartForm.dataset.category || '';
-        const dl = window.adobeDataLayer || [];
-        dl.push({
-          event: "addToCart",
-          xdmActionDetails: {
-            web: {
-              webInteraction: {
-                linkName: 'Add to Cart',
-                linkType: 'button',
-                linkPosition: 'pdp'
-              }
-            }
-          },
-          xdmCommerce: {
-            product: {
-              productID: productId,
-              productName: productName,
-              category: category,
-              price: price,
-              quantity: qty
-            }
-          }
-        });
-
-        const notice = document.querySelector('#cart-notice');
-        if (notice) {
-          notice.textContent = 'Added to cart. Proceed to cart or keep shopping.';
-          notice.style.display = 'block';
-        }
-        
-        // Reset processing flag after a short delay
-        setTimeout(() => {
-          addToCartProcessingFlags.delete(addToCartForm);
-        }, 1000);
-      });
+  // Global form submit handler for add to cart
+  document.addEventListener('submit', (e) => {
+    const form = e.target.closest('#add-to-cart-form');
+    if (!form) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Prevent duplicate submissions
+    if (addToCartProcessing.has(form)) return;
+    addToCartProcessing.add(form);
+    
+    if (!window.StaticData) {
+      addToCartProcessing.delete(form);
+      return;
     }
-  };
-  
-  // Try to attach immediately
-  attachAddToCartHandler();
-  
-  // Also try after DOM is fully loaded (in case form is created dynamically)
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attachAddToCartHandler);
-  } else {
-    attachAddToCartHandler();
-  }
-  
-  // Use MutationObserver to catch dynamically added forms
-  const observer = new MutationObserver(() => {
-    attachAddToCartHandler();
+    
+    const formData = new FormData(form);
+    const productId = formData.get('id');
+    const qty = Number(formData.get('qty')) || 1;
+    const productName = form.dataset.productName;
+    const price = Number(form.dataset.price);
+
+    // Find product from PRODUCTS array
+    if (!window.PRODUCTS || !Array.isArray(window.PRODUCTS)) {
+      addToCartProcessing.delete(form);
+      return;
+    }
+    const product = window.PRODUCTS.find(p => p.id === productId);
+    if (!product) {
+      addToCartProcessing.delete(form);
+      return;
+    }
+    
+    // Add to cart
+    window.StaticData.addToCart(productId, qty, product);
+    const cartState = fetchCart();
+    const count = cartState.items.reduce((sum, item) => sum + item.qty, 0) || 0;
+    updateCartBadge(count);
+
+    // Push addToCart event (ONLY ONCE, separate from linkClicked)
+    const category = form.dataset.category || '';
+    const dl = window.adobeDataLayer || [];
+    dl.push({
+      event: "addToCart",
+      xdmActionDetails: {
+        web: {
+          webInteraction: {
+            linkName: 'Add to Cart',
+            linkType: 'button',
+            linkPosition: 'pdp'
+          }
+        }
+      },
+      xdmCommerce: {
+        product: {
+          productID: productId,
+          productName: productName,
+          category: category,
+          price: price,
+          quantity: qty
+        }
+      }
+    });
+
+    const notice = document.querySelector('#cart-notice');
+    if (notice) {
+      notice.textContent = 'Added to cart. Proceed to cart or keep shopping.';
+      notice.style.display = 'block';
+    }
+    
+    // Reset processing flag after delay
+    setTimeout(() => {
+      addToCartProcessing.delete(form);
+    }, 800);
   });
-  observer.observe(document.body, { childList: true, subtree: true });
 
   // Remove from cart - handled in cart.html inline script
 
   // GLOBAL CLICK HANDLER - ONE handler for ALL clicks
   // Uses event delegation, fires linkClicked for every clickable element
   document.addEventListener('click', (e) => {
-    const target = e.target.closest('a, button, [role="button"]');
-    if (!target) return;
+    const el = e.target.closest('a, button');
+    if (!el) return;
     
     // Skip form inputs and selects (not clickable elements for tracking)
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
       return;
     }
     
-    // Fire linkClicked for ALL clicks (header nav, buttons, product cards, Add to Cart, etc.)
-    // This fires BEFORE navigation or form submission
-    handleLinkClick(target, e);
+    // Fire linkClicked for ALL clicks (header nav, buttons, product cards, CTAs, etc.)
+    handleLinkClick(el, e);
     
-    // Special handling for Add to Cart button - let form submit handler fire addToCart
-    if (target.type === 'submit' && target.closest('#add-to-cart-form')) {
+    // Special handling for Add to Cart button - let form submit handler fire addToCart separately
+    if (el.type === 'submit' && el.closest('#add-to-cart-form')) {
       // linkClicked already fired above, form submit will fire addToCart
       return;
     }
     
     // Special handling for remove item - handled in cart.html
-    if (target.hasAttribute('data-action') && target.getAttribute('data-action') === 'remove-item') {
+    if (el.hasAttribute('data-action') && el.getAttribute('data-action') === 'remove-item') {
       return;
     }
     
     // Special handling for checkout button - handled in cart.html
-    if (target.closest('#checkout-button')) {
+    if (el.closest('#checkout-button')) {
       return;
     }
-    
-    // For all other clicks (links, navigation), allow default behavior
-    // Navigation will proceed normally after linkClicked fires
-  }, true); // Use capture phase to fire BEFORE other handlers
+  });
 
   // Search form submission (ensure it navigates properly)
   const searchForm = document.querySelector('.search');

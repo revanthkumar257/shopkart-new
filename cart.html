@@ -136,41 +136,49 @@
           });
         }
         
-        // Re-attach event listeners (remove old ones first to prevent duplicates)
-        document.querySelectorAll('[data-action="remove-item"]').forEach((btn) => {
-          // Remove existing listener if any (clone node to remove all listeners)
-          const newBtn = btn.cloneNode(true);
-          btn.parentNode.replaceChild(newBtn, btn);
+        // Attach event listeners using event delegation to prevent duplicates
+        const removeItemHandler = (e) => {
+          const btn = e.target.closest('[data-action="remove-item"]');
+          if (!btn) return;
           
-          newBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const productId = newBtn.dataset.productId;
-            // Find product info before removing
-            const cart = window.StaticData.getCart();
-            const itemToRemove = cart.items.find(item => item.productId === productId);
-            
-            window.StaticData.removeFromCart(productId);
-            renderCart();
-            const cartState = window.StaticData.getCart();
-            const count = cartState.items.reduce((sum, item) => sum + item.qty, 0);
-            document.querySelector('[data-role="cart-count"]').textContent = count;
-            
-            if (itemToRemove) {
-              const dl = window.adobeDataLayer || [];
-              dl.push({
-                event: "removeFromCart",
-                xdmCommerce: {
-                  product: {
-                    productID: itemToRemove.productId,
-                    productName: itemToRemove.productName,
-                    quantity: 1
-                  }
+          e.preventDefault();
+          e.stopPropagation();
+          const productId = btn.dataset.productId;
+          
+          // Find product info before removing
+          const cart = window.StaticData.getCart();
+          const itemToRemove = cart.items.find(item => item.productId === productId);
+          
+          window.StaticData.removeFromCart(productId);
+          renderCart();
+          const cartState = window.StaticData.getCart();
+          const count = cartState.items.reduce((sum, item) => sum + item.qty, 0);
+          const cartBadge = document.querySelector('[data-role="cart-count"]');
+          if (cartBadge) {
+            cartBadge.textContent = count;
+          }
+          
+          if (itemToRemove) {
+            const dl = window.adobeDataLayer || [];
+            dl.push({
+              event: "removeFromCart",
+              xdmCommerce: {
+                product: {
+                  productID: itemToRemove.productId,
+                  productName: itemToRemove.productName,
+                  quantity: 1
                 }
-              });
-            }
-          });
-        });
+              }
+            });
+          }
+        };
+        
+        // Use event delegation - attach once to container
+        const cartContent = document.getElementById('cart-content');
+        if (cartContent) {
+          cartContent.removeEventListener('click', removeItemHandler);
+          cartContent.addEventListener('click', removeItemHandler);
+        }
       }
       
       renderCart();
