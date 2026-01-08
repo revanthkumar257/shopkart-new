@@ -21,6 +21,7 @@
       }
       
       const user = window.StaticData ? window.StaticData.getUser() : null;
+      const url = window.location;
       
       // Prevent duplicate purchase events on reload
       if (!order.purchaseEventPushed) {
@@ -40,6 +41,12 @@
                 pageType: "confirmation",
                 channel: "web"
               }
+            },
+            pageUrl: {
+              dataLayerUrl: url.href,
+              deUrl: url.href,
+              urlWithQSP: url.href,
+              urlWithoutQSP: url.origin + url.pathname
             }
           }
         });
@@ -90,6 +97,12 @@
                 pageType: "confirmation",
                 channel: "web"
               }
+            },
+            pageUrl: {
+              dataLayerUrl: url.href,
+              deUrl: url.href,
+              urlWithQSP: url.href,
+              urlWithoutQSP: url.origin + url.pathname
             }
           }
         });

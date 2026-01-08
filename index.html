@@ -12,6 +12,7 @@
   <script>
     (function() {
       const user = window.StaticData ? window.StaticData.getUser() : null;
+      const url = window.location;
       window.adobeDataLayer.push({
         event: "pageLoaded",
         xdmPageLoad: {
@@ -27,6 +28,12 @@
               pageType: "home",
               channel: "web"
             }
+          },
+          pageUrl: {
+            dataLayerUrl: url.href,
+            deUrl: url.href,
+            urlWithQSP: url.href,
+            urlWithoutQSP: url.origin + url.pathname
           }
         }
       });

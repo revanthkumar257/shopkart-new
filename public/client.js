@@ -56,23 +56,34 @@ document.addEventListener('DOMContentLoaded', () => {
   // initial cart badge refresh
   fetchCart();
 
+  const getPageNameFromDL = () => {
+    const dl = window.adobeDataLayer || [];
+    const pageLoaded = dl.find(entry => entry && entry.event === 'pageLoaded' && entry.xdmPageLoad);
+    if (pageLoaded && pageLoaded.xdmPageLoad.web && pageLoaded.xdmPageLoad.web.webPageDetails) {
+      return pageLoaded.xdmPageLoad.web.webPageDetails.pageName;
+    }
+    return null;
+  };
+
   // Generic click handler for all clickable elements
   const handleLinkClick = (element, e) => {
     const linkText = element.textContent?.trim() || element.getAttribute('aria-label') || '';
     const pageType = document.body.dataset.pageType || 'home';
-    let pageName = 'Home';
+    let pageName = getPageNameFromDL() || 'Home';
     
-    // Derive page name from page type
-    if (pageType === 'pdp') {
-      pageName = document.title.replace(' | ShopKart', '');
-    } else if (pageType === 'plp') {
-      pageName = 'Product Listing';
-    } else if (pageType === 'cart') {
-      pageName = 'Cart';
-    } else if (pageType === 'checkout') {
-      pageName = 'Checkout';
-    } else if (pageType === 'thankyou') {
-      pageName = 'Order Confirmation';
+    // Fallback derivation if page name not in data layer yet
+    if (!pageName) {
+      if (pageType === 'pdp') {
+        pageName = document.title.replace(' | ShopKart', '');
+      } else if (pageType === 'plp') {
+        pageName = 'Product Listing';
+      } else if (pageType === 'cart') {
+        pageName = 'Cart';
+      } else if (pageType === 'checkout') {
+        pageName = 'Checkout';
+      } else if (pageType === 'thankyou') {
+        pageName = 'Order Confirmation';
+      }
     }
     
     // Determine link type and position
