@@ -92,13 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (element.closest('header')) {
       linkPosition = 'header';
-      if (element.closest('.categories')) {
-        linkType = 'nav';
-      } else if (element.closest('.actions')) {
-        linkType = 'nav';
-      } else {
-        linkType = 'nav';
-      }
+      // All header links should be navigation type
+      linkType = 'navigation';
     } else if (element.closest('.hero-carousel')) {
       linkPosition = 'body';
       linkType = 'cta';
@@ -130,26 +125,26 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // Add to cart handler - SEPARATE from linkClicked, fires once per click
-  let addToCartHandlerAttached = false;
+  const addToCartProcessingFlags = new WeakSet();
+  const addToCartHandledForms = new WeakSet();
   
   const attachAddToCartHandler = () => {
     const addToCartForm = document.querySelector('#add-to-cart-form');
-    if (addToCartForm && !addToCartHandlerAttached) {
-      addToCartHandlerAttached = true;
+    if (addToCartForm && !addToCartHandledForms.has(addToCartForm)) {
+      addToCartHandledForms.add(addToCartForm);
       
       addToCartForm.addEventListener('submit', (e) => {
         e.preventDefault();
         e.stopPropagation();
         
-        // Prevent multiple submissions
-        if (addToCartForm.dataset.processing === 'true') {
+        // Prevent multiple submissions using WeakSet for better tracking
+        if (addToCartProcessingFlags.has(addToCartForm)) {
           return;
         }
-        addToCartForm.dataset.processing = 'true';
+        addToCartProcessingFlags.add(addToCartForm);
         
         if (!window.StaticData) {
-          console.error('StaticData not available');
-          addToCartForm.dataset.processing = 'false';
+          addToCartProcessingFlags.delete(addToCartForm);
           return;
         }
         
@@ -161,14 +156,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Find product from PRODUCTS array
         if (!window.PRODUCTS || !Array.isArray(window.PRODUCTS)) {
-          console.error('PRODUCTS array not available');
-          addToCartForm.dataset.processing = 'false';
+          addToCartProcessingFlags.delete(addToCartForm);
           return;
         }
         const product = window.PRODUCTS.find(p => p.id === productId);
         if (!product) {
-          console.error('Product not found:', productId);
-          addToCartForm.dataset.processing = 'false';
+          addToCartProcessingFlags.delete(addToCartForm);
           return;
         }
         
@@ -183,6 +176,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const dl = window.adobeDataLayer || [];
         dl.push({
           event: "addToCart",
+          xdmActionDetails: {
+            web: {
+              webInteraction: {
+                linkName: 'Add to Cart',
+                linkType: 'button',
+                linkPosition: 'pdp'
+              }
+            }
+          },
           xdmCommerce: {
             product: {
               productID: productId,
@@ -202,8 +204,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Reset processing flag after a short delay
         setTimeout(() => {
-          addToCartForm.dataset.processing = 'false';
-        }, 500);
+          addToCartProcessingFlags.delete(addToCartForm);
+        }, 1000);
       });
     }
   };
@@ -215,12 +217,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', attachAddToCartHandler);
   } else {
-    // Use MutationObserver to catch dynamically added forms
-    const observer = new MutationObserver(() => {
-      attachAddToCartHandler();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+    attachAddToCartHandler();
   }
+  
+  // Use MutationObserver to catch dynamically added forms
+  const observer = new MutationObserver(() => {
+    attachAddToCartHandler();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
 
   // Remove from cart - handled in cart.html inline script
 

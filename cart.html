@@ -136,10 +136,16 @@
           });
         }
         
-        // Re-attach event listeners
+        // Re-attach event listeners (remove old ones first to prevent duplicates)
         document.querySelectorAll('[data-action="remove-item"]').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const productId = btn.dataset.productId;
+          // Remove existing listener if any (clone node to remove all listeners)
+          const newBtn = btn.cloneNode(true);
+          btn.parentNode.replaceChild(newBtn, btn);
+          
+          newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const productId = newBtn.dataset.productId;
             // Find product info before removing
             const cart = window.StaticData.getCart();
             const itemToRemove = cart.items.find(item => item.productId === productId);

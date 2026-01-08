@@ -117,7 +117,9 @@
         `;
       }
       
-      document.getElementById('login-form').addEventListener('submit', (e) => {
+      const loginForm = document.getElementById('login-form');
+      if (loginForm) {
+        loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
         const email = formData.get('email');
@@ -139,7 +141,8 @@
         window.StaticData.setUser({ id: user.id, name: user.name, email: user.email });
         const redirect = new URLSearchParams(window.location.search).get('redirect') || './index.html';
         window.location.href = redirect;
-      });
+        });
+      }
     })();
   </script>
 </body>
