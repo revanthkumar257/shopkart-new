@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,19 +11,19 @@
   <script src="./public/static-data.js"></script>
   <script src="./public/data-layer-helper.js"></script>
   <script>
-    (function() {
+    (function () {
       const urlParams = new URLSearchParams(window.location.search);
       const orderId = urlParams.get('orderId');
       const order = orderId ? window.StaticData.getOrder(orderId) : null;
-      
+
       if (!order) {
         window.location.href = './index.html';
         return;
       }
-      
+
       const user = window.StaticData ? window.StaticData.getUser() : null;
       const url = window.location;
-      
+
       // Prevent duplicate purchase events on reload
       if (!order.purchaseEventPushed) {
         // Page loaded event first
@@ -50,39 +51,67 @@
             }
           }
         });
-        
+
         // Purchase event
         const productsArray = order.products.map(p => {
-          // Find product in PRODUCTS array to get category
+          // Find product in PRODUCTS array to get category and details if needed
           let category = "";
+          let discountAmount = 0;
+          let discountPercent = 0;
+          let originalPrice = p.price;
+
           if (typeof PRODUCTS !== 'undefined') {
             const product = PRODUCTS.find(prod => prod.id === p.productId);
-            category = product ? product.category : "";
+            if (product) {
+              category = product.category;
+              originalPrice = product.mrp || product.price;
+              // Product-level discount
+              if (originalPrice > p.price) {
+                discountAmount = originalPrice - p.price;
+                discountPercent = Math.round((discountAmount / originalPrice) * 100);
+              }
+            }
           }
+
           return {
             productID: p.productId,
             productName: p.productName,
             category: category,
             price: p.price,
-            quantity: p.qty
+            originalPrice: originalPrice,
+            discountAmount: discountAmount,
+            discountPercent: discountPercent,
+            quantity: p.qty,
+            variant: p.color || p.variant || '' // Persisted color
           };
         });
-        
+
         window.adobeDataLayer.push({
           event: "purchase",
           xdmCommerce: {
             order: {
               orderID: order.id,
               totalValue: order.revenue,
-              currency: "USD"
+              currency: "USD",
+              couponCode: order.couponCode || '',
+              couponDiscountAmount: order.discountAmount || 0,
+              orderTotalBeforeCoupon: order.subtotal || order.revenue,
+              orderTotalAfterCoupon: order.revenue,
+              // We could include other attributes like paymentMethod here if per schema, but sticking to basics+coupon
             },
             products: productsArray
           }
         });
         order.purchaseEventPushed = true;
         window.StaticData.setOrder(orderId, order);
+
+        // Clear coupon after successful order
+        window.StaticData.removeCoupon();
       } else {
+        // Page load push for reload (already handled)
+        // Ensure consistency with new structure if we were to re-push purchase (we don't), but pageLoaded is fine.
         window.adobeDataLayer.push({
+          // ... (keep pageLoaded as is in original)
           event: "pageLoaded",
           xdmPageLoad: {
             custData: {
@@ -107,25 +136,30 @@
           }
         });
       }
-      
+
       window.currentOrder = order;
     })();
   </script>
-  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js" async></script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js"
+    async></script>
 </head>
+
 <body data-page-type="thankyou">
+  <!-- Header omitted for brevity in replace block, assuming same -->
   <header>
     <div class="topbar">
       <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
       <form class="search" method="GET" action="./plp.html">
-        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more" aria-label="Search products" value="" />
+        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more"
+          aria-label="Search products" value="" />
         <button type="submit">Search</button>
       </form>
       <div class="actions">
         <span id="user-info"></span>
         <a href="./account.html" aria-label="Account" id="account-link">Account</a>
         <a href="./logout.html" aria-label="Logout" id="logout-link" style="display:none;">Logout</a>
-        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge" data-role="cart-count">0</span></a>
+        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge"
+            data-role="cart-count">0</span></a>
       </div>
     </div>
     <div class="categories">
@@ -138,9 +172,9 @@
     </div>
   </header>
   <main>
-  <div id="thankyou-content">
-    <p>Loading order details...</p>
-  </div>
+    <div id="thankyou-content">
+      <p>Loading order details...</p>
+    </div>
   </main>
   <footer>
     <p>ShopKart marketplace</p>
@@ -148,12 +182,12 @@
   <script src="./public/adl-utils.js"></script>
   <script src="./public/client.js"></script>
   <script>
-    (function() {
+    (function () {
       if (typeof window.currentOrder === 'undefined') {
         document.getElementById('thankyou-content').innerHTML = '<p>No order found. Please complete checkout.</p>';
         return;
       }
-      
+
       const order = window.currentOrder;
       let html = `
         <h2>Thank you for your order!</h2>
@@ -164,18 +198,24 @@
           <p><strong>Order ID:</strong> ${order.id}</p>
           <p><strong>Customer:</strong> ${order.customerName}</p>
           <p><strong>Email:</strong> ${order.email}</p>
+          <p><strong>Subtotal:</strong> $${(order.subtotal || order.revenue).toFixed(2)}</p>
+          ${order.discountAmount ? `<p style="color:green;"><strong>Discount (${order.couponCode}):</strong> -$${order.discountAmount.toFixed(2)}</p>` : ''}
           <p><strong>Total:</strong> $${order.revenue.toFixed(2)}</p>
           
           <h4 style="margin-top:20px;">Items Ordered</h4>
           <ul>
       `;
-      
+
       order.products.forEach((p) => {
-        html += `<li>${p.productName} — Qty ${p.qty} — $${(p.price * p.qty).toFixed(2)}</li>`;
+        html += `<li>
+          ${p.productName} 
+          ${p.color ? `<span style="color:#666;font-size:0.9em;">(${p.color})</span>` : ''} 
+          — Qty ${p.qty} — $${(p.price * p.qty).toFixed(2)}
+        </li>`;
       });
-      
+
       html += '</ul>';
-      
+
       if (order.shippingAddress) {
         html += `
           <h4 style="margin-top:20px;">Shipping Address</h4>
@@ -187,25 +227,96 @@
           </p>
         `;
       }
-      
+
       if (order.paymentMethod) {
         html += `
           <h4 style="margin-top:20px;">Payment Method</h4>
           <p>${order.paymentMethod}</p>
         `;
       }
-      
+
       html += '</div>';
-      html += '<a class="button primary" href="./plp.html" style="margin-top:16px;">Continue shopping</a>';
-      
+      html += '<div style="display:flex;gap:12px;margin-top:16px;">';
+      html += '<a class="button primary" href="./plp.html">Continue shopping</a>';
+      html += '<button id="cancel-order-btn" class="button secondary" style="border-color:#c00;color:#c00;">Cancel Order</button>';
+      html += '</div>';
+
       document.getElementById('thankyou-content').innerHTML = html;
-      
+
+      // Cancel Order Handler
+      document.getElementById('cancel-order-btn').addEventListener('click', () => {
+        if (confirm('Are you sure you want to cancel this order?')) {
+          const currentOrder = window.currentOrder;
+
+          // Generate Products Array for Event
+          const productsArray = currentOrder.products.map(p => {
+            let discountAmount = 0;
+            let discountPercent = 0;
+            let originalPrice = p.price;
+            // Re-derive if possible or trust stored
+            // stored p doesn't have originalPrice explicitly unless we stored it in order object?
+            // we stored it in the order object in checkout.html? Wait, checkout.html creates order object.
+            // checkout.html line 222: maps cart items to order products. It saves price, qty, image, brand.
+            // IT DOES NOT SAVE originalPrice/mrp! We need to derive it again here using PRODUCTS global.
+
+            let category = "";
+            if (typeof PRODUCTS !== 'undefined') {
+              const product = PRODUCTS.find(prod => prod.id === p.productId);
+              if (product) {
+                category = product.category;
+                originalPrice = product.mrp || product.price;
+                if (originalPrice > p.price) {
+                  discountAmount = originalPrice - p.price;
+                  discountPercent = Math.round((discountAmount / originalPrice) * 100);
+                }
+              }
+            }
+
+            return {
+              productID: p.productId,
+              productName: p.productName,
+              category: category,
+              price: p.price,
+              originalPrice: originalPrice,
+              discountAmount: discountAmount,
+              discountPercent: discountPercent,
+              quantity: p.qty,
+              variant: p.variant || '' // Variant/color matches?
+            };
+          });
+
+          // Fire orderCancelled event
+          window.adobeDataLayer.push({
+            event: "orderCancelled",
+            xdmCommerce: {
+              order: {
+                orderID: currentOrder.id,
+                totalValue: currentOrder.revenue,
+                currency: "USD",
+                status: "cancelled"
+              },
+              products: productsArray
+            }
+          });
+          console.log("ACDL: orderCancelled tracked");
+
+          // Update UI
+          document.getElementById('thankyou-content').innerHTML = `
+                <div class="notice" style="background:#fee;border-color:#fcc;color:#c00;padding:20px;text-align:center;">
+                    <h2>Order Cancelled</h2>
+                    <p>Your order ${currentOrder.id} has been cancelled.</p>
+                    <a href="./plp.html" class="button primary" style="margin-top:16px;display:inline-block;">Return to Shop</a>
+                </div>
+            `;
+        }
+      });
+
       // Update user info
       const user = window.StaticData ? window.StaticData.getUser() : null;
       const userInfo = document.getElementById('user-info');
       const accountLink = document.getElementById('account-link');
       const logoutLink = document.getElementById('logout-link');
-      
+
       if (user) {
         if (userInfo) userInfo.textContent = user.name;
         if (accountLink) accountLink.style.display = 'none';
@@ -217,5 +328,7 @@
       }
     })();
   </script>
+  <script src="./public/footer-injector.js"></script>
 </body>
+
 </html>

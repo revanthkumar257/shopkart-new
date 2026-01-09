@@ -81,60 +81,78 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   };
 
-  // Generic click handler for all clickable elements
-  const handleLinkClick = (element, e) => {
-    const linkText = element.textContent?.trim() || element.getAttribute('aria-label') || '';
-    const pageType = document.body.dataset.pageType || 'home';
-    let pageName = getPageNameFromDL() || 'Home';
+  // Resolvers for Link Tracking
+  const getLinkName = (element) => {
+    // Priority: visible text -> aria-label -> title -> product name -> fallback
+    let name = element.textContent?.trim();
+    if (!name) name = element.getAttribute('aria-label');
+    if (!name) name = element.getAttribute('title');
 
-    // Fallback derivation if page name not in data layer yet
-    if (!pageName) {
-      if (pageType === 'pdp') {
-        pageName = document.title.replace(' | ShopKart', '');
-      } else if (pageType === 'plp') {
-        pageName = 'Product Listing';
-      } else if (pageType === 'cart') {
-        pageName = 'Cart';
-      } else if (pageType === 'checkout') {
-        pageName = 'Checkout';
-      } else if (pageType === 'thankyou') {
-        pageName = 'Order Confirmation';
+    // Check for product context if inside a product card
+    if (!name) {
+      const card = element.closest('.card, .deal-card, .cat-card');
+      if (card) {
+        // Try to find a name inside the card
+        const nameEl = card.querySelector('h3, h4, .cat-title');
+        if (nameEl) name = nameEl.textContent.trim();
       }
     }
 
-    // Determine link type and position
-    let linkType = 'button';
-    let linkPosition = 'body';
+    if (!name) name = element.tagName === 'IMG' ? element.alt : '';
 
-    if (element.closest('header')) {
-      linkPosition = 'header';
-      // All header links should be navigation type
-      linkType = 'navigation';
-    } else if (element.closest('.hero-carousel')) {
-      linkPosition = 'body';
-      linkType = 'cta';
-    } else if (element.closest('.category-banners')) {
-      linkPosition = 'body';
-      linkType = 'banner';
-    } else if (element.closest('.card') || element.closest('.deal-card')) {
-      linkPosition = 'product-tile';
-      linkType = 'card';
-    } else if (element.closest('footer')) {
-      linkPosition = 'footer';
-      linkType = 'footer';
-    }
+    // Final fallback
+    if (!name) return 'Unlabeled Link';
+
+    return name;
+  };
+
+  const getLinkPosition = (element) => {
+    if (element.closest('header')) return 'header';
+    if (element.closest('footer')) return 'footer';
+    if (element.closest('.hero-carousel')) return 'hero-carousel';
+    if (element.closest('.category-banners')) return 'category-banners';
+    if (element.closest('#bestselling-products')) return 'bestselling-products';
+    if (element.closest('#trending-products')) return 'trending-products';
+    if (element.closest('.carousel')) return 'deals-carousel';
+    if (element.closest('#category-cards')) return 'category-grid';
+    if (element.closest('.product-grid')) return 'plp-grid';
+    if (element.closest('.product-details')) return 'pdp-details';
+    if (element.closest('.cart-container')) return 'cart-page';
+    if (element.closest('#checkout-form')) return 'checkout-form';
+    return 'body';
+  };
+
+  const getLinkType = (element) => {
+    if (element.closest('nav') || element.closest('.categories') || element.closest('.topbar a')) return 'navigation';
+    if (element.closest('.card') || element.closest('.deal-card')) return 'product';
+    if (element.closest('.cat-card')) return 'category';
+    if (element.classList.contains('button') || element.tagName === 'BUTTON' || element.type === 'submit') return 'cta';
+    if (element.tagName === 'A') return 'link';
+    return 'other';
+  };
+
+  // Generic click handler for all clickable elements
+  const handleLinkClick = (element, e) => {
+    const linkName = getLinkName(element);
+    // Section 3: linkName must never be empty. If it resolves to empty (fallback covered above), technically we shouldn't track?
+    // But 'Unlabeled Link' is a deterministic fallback.
+
+    const linkType = getLinkType(element);
+    const linkPosition = getLinkPosition(element);
+
+    let pageName = getPageNameFromDL() || document.title;
 
     const eventData = {
       event: "linkClicked",
-      custData: getCustData(), // Ensure custData is included as per requirements
+      custData: getCustData(),
       xdmActionDetails: {
         web: {
           webInteraction: {
-            linkName: linkText,
+            linkName: linkName,
             linkType: linkType,
             linkPosition: linkPosition,
             linkPageName: pageName,
-            linkURL: element.href || '' // Added linkURL as per requirement
+            linkURL: element.href || ''
           }
         }
       },
@@ -144,16 +162,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const dl = window.adobeDataLayer || [];
     dl.push(eventData);
 
-    // Save to Session Storage
+    // Save to Session Storage (State only, no auto-fire on load)
     sessionStorage.setItem("shopkart_lastLinkClicked", JSON.stringify(eventData));
 
     // LOGGING
     console.log("ACDL: linkClicked tracked", eventData);
-    console.log("ACDL Length:", dl.length);
 
     // Handle Navigation Logic
     const href = element.getAttribute('href');
-    // If it's a link with a real URL and not just a hash or JS void
     if (element.tagName === 'A' && href && !href.startsWith('#') && !href.startsWith('javascript:')) {
       e.preventDefault();
       setTimeout(() => {
@@ -186,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const formData = new FormData(form);
     const productId = formData.get('id');
     const qty = Number(formData.get('qty')) || 1;
+    const color = formData.get('color') || '';
     const productName = form.dataset.productName;
     const price = Number(form.dataset.price);
 
@@ -200,14 +217,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Add to cart
-    window.StaticData.addToCart(productId, qty, product);
+    // Add to cart with Color
+    const itemToAdd = { ...product, color: color };
+    window.StaticData.addToCart(productId, qty, itemToAdd);
     const cartState = fetchCart();
     const count = cartState.items.reduce((sum, item) => sum + item.qty, 0) || 0;
     updateCartBadge(count);
 
     // Push addToCart event (ONLY ONCE, separate from linkClicked)
     const category = form.dataset.category || '';
+    const mrp = Number(form.dataset.mrp) || price;
+    let discountAmount = 0;
+    let discountPercent = 0;
+    if (mrp > price) {
+      discountAmount = mrp - price;
+      discountPercent = Math.round((discountAmount / mrp) * 100);
+    }
+
     const dl = window.adobeDataLayer || [];
     dl.push({
       event: "addToCart",
@@ -226,7 +252,11 @@ document.addEventListener('DOMContentLoaded', () => {
           productName: productName,
           category: category,
           price: price,
-          quantity: qty
+          originalPrice: mrp,
+          discountAmount: discountAmount,
+          discountPercent: discountPercent,
+          quantity: qty,
+          variant: color // Tracking color as variant
         }
       }
     });
@@ -248,8 +278,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // GLOBAL CLICK HANDLER - ONE handler for ALL clicks
   // Uses event delegation, fires linkClicked for every clickable element
   document.addEventListener('click', (e) => {
-    const el = e.target.closest('a, button');
+    // Strict qualification (Section 2)
+    const el = e.target.closest('a, button, input[type="submit"], [role="button"]');
     if (!el) return;
+
+    // Ignore disabled elements
+    if (el.disabled || el.getAttribute('aria-disabled') === 'true') return;
 
     // Skip form inputs and selects (not clickable elements for tracking)
     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {

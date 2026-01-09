@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,11 +11,11 @@
   <script src="./public/static-data.js"></script>
   <script src="./public/data-layer-helper.js"></script>
   <script>
-    (function() {
+    (function () {
       // Get product ID from URL - try query param first, then path
       const urlParams = new URLSearchParams(window.location.search);
       let productId = urlParams.get('id');
-      
+
       // If no query param, try to extract from path (for /pdp/{id}.html)
       if (!productId) {
         const pathMatch = window.location.pathname.match(/\/pdp\/([^\/]+)\.html$/);
@@ -22,21 +23,21 @@
           productId = pathMatch[1];
         }
       }
-      
+
       if (!productId || typeof PRODUCTS === 'undefined') {
         window.location.href = './index.html';
         return;
       }
-      
+
       const product = PRODUCTS.find(p => p.id === productId);
       if (!product) {
         window.location.href = './index.html';
         return;
       }
-      
+
       // Store product for rendering
       window.currentProduct = product;
-      
+
       const user = window.StaticData ? window.StaticData.getUser() : null;
       const url = window.location;
       window.adobeDataLayer.push({
@@ -63,26 +64,30 @@
           }
         }
       });
-      
+
       // Update title
       document.title = `${product.name} | ShopKart`;
     })();
   </script>
-  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js" async></script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js"
+    async></script>
 </head>
+
 <body data-page-type="pdp">
   <header>
     <div class="topbar">
       <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
       <form class="search" method="GET" action="./plp.html">
-        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more" aria-label="Search products" value="" />
+        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more"
+          aria-label="Search products" value="" />
         <button type="submit">Search</button>
       </form>
       <div class="actions">
         <span id="user-info"></span>
         <a href="./account.html" aria-label="Account" id="account-link">Account</a>
         <a href="./logout.html" aria-label="Logout" id="logout-link" style="display:none;">Logout</a>
-        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge" data-role="cart-count">0</span></a>
+        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge"
+            data-role="cart-count">0</span></a>
       </div>
     </div>
     <div class="categories">
@@ -95,11 +100,12 @@
     </div>
   </header>
   <main>
-  <div class="pdp-background" style="background-image: url('https://images.unsplash.com/photo-1581091012184-5c4c11c3f024');"></div>
-  <div class="grid pdp-grid" id="pdp-content">
-    <!-- Will be populated by JavaScript -->
-    <p>Loading product...</p>
-  </div>
+    <div class="pdp-background"
+      style="background-image: url('https://images.unsplash.com/photo-1581091012184-5c4c11c3f024');"></div>
+    <div class="grid pdp-grid" id="pdp-content">
+      <!-- Will be populated by JavaScript -->
+      <p>Loading product...</p>
+    </div>
   </main>
   <footer>
     <p>ShopKart marketplace</p>
@@ -107,17 +113,20 @@
   <script src="./public/adl-utils.js"></script>
   <script src="./public/client.js"></script>
   <script>
-    (function() {
+    (function () {
       if (typeof window.currentProduct === 'undefined') {
         document.getElementById('pdp-content').innerHTML = '<p>Product not found. <a href="./index.html">Return to home</a></p>';
         return;
       }
-      
+
       const product = window.currentProduct;
       const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
       const bulletsHtml = product.bullets.map(b => `<li>${b}</li>`).join('');
       const specsHtml = product.specs.map(spec => `<tr><th>${spec[0]}</th><td>${spec[1]}</td></tr>`).join('');
-      
+
+      const validColorCategories = ['Mobiles', 'Fashion'];
+      const showColor = validColorCategories.includes(product.category);
+
       document.getElementById('pdp-content').innerHTML = `
         <div class="pdp-image">
           <img src="${product.image}" alt="${product.name}" onerror="this.onerror=null; this.src=this.src.startsWith('http') ? './public/images/placeholders/missing-banner.png' : this.src;" />
@@ -141,9 +150,23 @@
           data-category="${product.category}"
           data-brand="${product.brand}"
           data-price="${product.price}"
+          data-mrp="${product.mrp}"
           data-position="${product.position}"
         >
           <input type="hidden" name="id" value="${product.id}" />
+          
+          ${showColor ? `
+          <div class="form-group">
+            <label for="color">Color</label>
+            <select id="color" name="color" style="padding:8px;border-radius:4px;border:1px solid #ddd;width:100px;">
+                <option value="Black">Black</option>
+                <option value="White">White</option>
+                <option value="Blue">Blue</option>
+                <option value="Red">Red</option>
+            </select>
+          </div>
+          ` : '<input type="hidden" name="color" value="" />'}
+
           <div class="form-group">
             <label for="qty">Quantity</label>
             <input id="qty" name="qty" type="number" min="1" value="1" />
@@ -162,9 +185,9 @@
           </table>
         </section>
       `;
-      
+
       // Add to cart form handler is managed by public/client.js to prevent duplicates
-      
+
       // Initialize cart count on page load
       if (window.StaticData) {
         const cart = window.StaticData.getCart();
@@ -177,13 +200,13 @@
           cartBadge.textContent = cartCount;
         }
       }
-      
+
       // Update user info
       const user = window.StaticData ? window.StaticData.getUser() : null;
       const userInfo = document.getElementById('user-info');
       const accountLink = document.getElementById('account-link');
       const logoutLink = document.getElementById('logout-link');
-      
+
       if (user) {
         if (userInfo) userInfo.textContent = user.name;
         if (accountLink) accountLink.style.display = 'none';
@@ -195,5 +218,7 @@
       }
     })();
   </script>
+  <script src="./public/footer-injector.js"></script>
 </body>
+
 </html>

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,7 +11,7 @@
   <script src="./public/static-data.js"></script>
   <script src="./public/data-layer-helper.js"></script>
   <script>
-    (function() {
+    (function () {
       const user = window.StaticData ? window.StaticData.getUser() : null;
       const url = window.location;
       window.adobeDataLayer.push({
@@ -39,21 +40,25 @@
       });
     })();
   </script>
-  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js" async></script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js"
+    async></script>
 </head>
+
 <body data-page-type="checkout">
   <header>
     <div class="topbar">
       <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
       <form class="search" method="GET" action="./plp.html">
-        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more" aria-label="Search products" value="" />
+        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more"
+          aria-label="Search products" value="" />
         <button type="submit">Search</button>
       </form>
       <div class="actions">
         <span id="user-info"></span>
         <a href="./account.html" aria-label="Account" id="account-link">Account</a>
         <a href="./logout.html" aria-label="Logout" id="logout-link" style="display:none;">Logout</a>
-        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge" data-role="cart-count">0</span></a>
+        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge"
+            data-role="cart-count">0</span></a>
       </div>
     </div>
     <div class="categories">
@@ -66,10 +71,10 @@
     </div>
   </header>
   <main>
-  <h2>Checkout</h2>
-  <div id="checkout-content">
-    <p>Loading...</p>
-  </div>
+    <h2>Checkout</h2>
+    <div id="checkout-content">
+      <p>Loading...</p>
+    </div>
   </main>
   <footer>
     <p>ShopKart marketplace</p>
@@ -77,26 +82,91 @@
   <script src="./public/adl-utils.js"></script>
   <script src="./public/client.js"></script>
   <script>
-    (function() {
+    (function () {
       function renderCheckout() {
         const cart = window.StaticData.getCart();
         const total = window.StaticData.getCartTotal();
+        const subtotal = window.StaticData.getCartSubtotal();
+        const coupon = window.StaticData.getCoupon();
         const user = window.StaticData.getUser();
         const container = document.getElementById('checkout-content');
-        
+
+        // Handle Order Failed Event
+        const error = new URLSearchParams(window.location.search).get('error');
+        if (error) {
+          window.adobeDataLayer.push({
+            event: "orderFailed",
+            xdmCommerce: {
+              order: {
+                orderType: "checkout",
+                errorType: "validation",
+                errorMessage: error
+              }
+            }
+          });
+          console.log("ACDL: orderFailed tracked");
+        }
+
+        // Fire Checkout View Event (Tracks products at checkout step)
+        // Ensure we only fire if cart is not empty (logic below handles empty cart UI return, but we want to track before that if valid?)
+        // Actually, if cart is empty, we probably don't want to fire checkoutView with 0 items? Or do we?
+        // Let's place it BEFORE empty check? Or AFTER?
+        // If empty, user sees "Cart is empty". Maybe we shouldn't fire checkoutView?
+        // Standard is: View Checkout is fired when user views the checkout page. If empty, it's still a view? 
+        // But the products array would be empty.
+        // Let's fire it only if cart has items.
+
         if (!cart.items || cart.items.length === 0) {
           container.innerHTML = '<p>Your cart is empty. <a href="./plp.html">Add items</a> to continue.</p>';
           return;
         }
-        
-        const error = new URLSearchParams(window.location.search).get('error');
+
+        const productsArray = cart.items.map(item => {
+          // Re-derive price details if possible
+          const product = typeof PRODUCTS !== 'undefined' ? PRODUCTS.find(p => p.id === item.productId) : null;
+          const mrp = product ? (product.mrp || item.price) : item.price;
+          let discountAmount = 0;
+          let discountPercent = 0;
+          if (mrp > item.price) {
+            discountAmount = mrp - item.price;
+            discountPercent = Math.round((discountAmount / mrp) * 100);
+          }
+          return {
+            productID: item.productId,
+            productName: item.productName,
+            category: product ? product.category : '',
+            price: item.price,
+            originalPrice: mrp,
+            discountAmount: discountAmount,
+            discountPercent: discountPercent,
+            quantity: item.qty,
+            variant: item.color || ''
+          };
+        });
+
+        window.adobeDataLayer.push({
+          event: "checkoutView",
+          xdmCommerce: {
+            cart: {
+              totalQuantity: cart.items.reduce((sum, item) => sum + item.qty, 0),
+              totalValue: total
+            },
+            products: productsArray
+          }
+        });
+        console.log("ACDL: checkoutView tracked");
+
         let html = '';
         if (error) {
           html += `<div class="notice" style="background:#fee;border-color:#fcc;color:#c00;">${error}</div>`;
         }
-        
+
         html += `<div class="summary">
-          <p><strong>Total due:</strong> $${total.toFixed(2)}</p>
+          <h3>Order Summary</h3>
+          <p><strong>Subtotal:</strong> $${subtotal.toFixed(2)}</p>
+          ${coupon ? `<p style="color:green;"><strong>Discount (${coupon.code}):</strong> -$${(subtotal - total).toFixed(2)}</p>` : ''}
+          <p style="font-size:1.2em;border-top:1px solid #ccc;padding-top:8px;"><strong>Total due:</strong> $${total.toFixed(2)}</p>
+          
           <form id="checkout-form">
             <h3>Shipping Information</h3>
             <div class="form-group">
@@ -154,7 +224,7 @@
           </form>
         </div>`;
         container.innerHTML = html;
-        
+
         // Handle form submission
         document.getElementById('checkout-form').addEventListener('submit', (e) => {
           e.preventDefault();
@@ -170,7 +240,7 @@
             postalCode: formData.get('postalCode'),
             paymentMethod: formData.get('paymentMethod')
           };
-          
+
           // Validation
           const errors = [];
           if (!data.name || !data.name.trim()) errors.push('Name is required');
@@ -181,25 +251,34 @@
           if (!data.postalCode || !data.postalCode.trim()) errors.push('Postal code is required');
           if (!data.phone || !data.phone.trim()) errors.push('Phone number is required');
           if (!data.paymentMethod) errors.push('Payment method is required');
-          
+
           if (errors.length > 0) {
             window.location.href = `./checkout.html?error=${encodeURIComponent(errors.join(', '))}`;
             return;
           }
-          
+
           // Create order
           const orderId = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
-          const revenue = total;
+          const currentTotal = window.StaticData.getCartTotal();
+          const currentSubtotal = window.StaticData.getCartSubtotal();
+          const coupon = window.StaticData.getCoupon();
+          const discountAmount = currentSubtotal - currentTotal;
+
           const order = {
             id: orderId,
-            revenue,
+            revenue: currentTotal,
+            subtotal: currentSubtotal,
+            discountAmount: discountAmount,
+            couponCode: coupon ? coupon.code : null,
             products: cart.items.map(item => ({
               productId: item.productId,
               productName: item.productName,
               price: item.price,
               qty: item.qty,
               image: item.image,
-              brand: item.brand
+              brand: item.brand,
+              color: item.color || '', // PERSIST COLOR
+              variant: item.color || ''
             })),
             customerName: data.name.trim(),
             email: data.email.trim(),
@@ -215,22 +294,22 @@
             customerId: user ? user.id : null,
             createdAt: new Date().toISOString()
           };
-          
+
           window.StaticData.setOrder(orderId, order);
           window.StaticData.clearCart();
-          
+
           window.location.href = `./thankyou.html?orderId=${orderId}`;
         });
       }
-      
+
       renderCheckout();
-      
+
       // Update user info
       const user = window.StaticData ? window.StaticData.getUser() : null;
       const userInfo = document.getElementById('user-info');
       const accountLink = document.getElementById('account-link');
       const logoutLink = document.getElementById('logout-link');
-      
+
       if (user) {
         if (userInfo) userInfo.textContent = user.name;
         if (accountLink) accountLink.style.display = 'none';
@@ -242,5 +321,7 @@
       }
     })();
   </script>
+  <script src="./public/footer-injector.js"></script>
 </body>
+
 </html>
