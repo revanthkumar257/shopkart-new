@@ -1,5 +1,21 @@
 document.addEventListener('DOMContentLoaded', () => {
   const dl = window.adobeDataLayer || [];
+
+  // LOGGING for pageLoaded
+  // Find the pageLoaded event that was pushed (either purely inline or if we need to log it now)
+  // Inline scripts usually run before DOMContentLoaded. 
+  const pageData = dl.find(e => e.event === "pageLoaded");
+  if (pageData) {
+    console.log("ACDL: pageLoaded tracked", pageData);
+    console.log("ACDL Length:", dl.length);
+
+    // SAVE PAGE DATA TO SESSION STORAGE (Requirement 4)
+    sessionStorage.setItem("shopkart_pageData", JSON.stringify({
+      ...pageData,
+      timestamp: Date.now()
+    }));
+  }
+
   const cartBadge = document.querySelector('[data-role="cart-count"]');
 
   // Get custData from initial push if available
@@ -70,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const linkText = element.textContent?.trim() || element.getAttribute('aria-label') || '';
     const pageType = document.body.dataset.pageType || 'home';
     let pageName = getPageNameFromDL() || 'Home';
-    
+
     // Fallback derivation if page name not in data layer yet
     if (!pageName) {
       if (pageType === 'pdp') {
@@ -85,11 +101,11 @@ document.addEventListener('DOMContentLoaded', () => {
         pageName = 'Order Confirmation';
       }
     }
-    
+
     // Determine link type and position
     let linkType = 'button';
     let linkPosition = 'body';
-    
+
     if (element.closest('header')) {
       linkPosition = 'header';
       // All header links should be navigation type
@@ -107,44 +123,66 @@ document.addEventListener('DOMContentLoaded', () => {
       linkPosition = 'footer';
       linkType = 'footer';
     }
-    
-    const dl = window.adobeDataLayer || [];
-    dl.push({
+
+    const eventData = {
       event: "linkClicked",
+      custData: getCustData(), // Ensure custData is included as per requirements
       xdmActionDetails: {
         web: {
           webInteraction: {
             linkName: linkText,
             linkType: linkType,
             linkPosition: linkPosition,
-            linkPageName: pageName
+            linkPageName: pageName,
+            linkURL: element.href || '' // Added linkURL as per requirement
           }
         }
-      }
-    });
+      },
+      timestamp: Date.now()
+    };
+
+    const dl = window.adobeDataLayer || [];
+    dl.push(eventData);
+
+    // Save to Session Storage
+    sessionStorage.setItem("shopkart_lastLinkClicked", JSON.stringify(eventData));
+
+    // LOGGING
+    console.log("ACDL: linkClicked tracked", eventData);
+    console.log("ACDL Length:", dl.length);
+
+    // Handle Navigation Logic
+    const href = element.getAttribute('href');
+    // If it's a link with a real URL and not just a hash or JS void
+    if (element.tagName === 'A' && href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+      e.preventDefault();
+      setTimeout(() => {
+        window.location.href = href;
+      }, 300);
+    }
   };
 
   // Add to cart handler - SEPARATE from linkClicked, fires once per click
   // Use single WeakSet for processing guard
   const addToCartProcessing = new WeakSet();
-  
+
   // Global form submit handler for add to cart
   document.addEventListener('submit', (e) => {
     const form = e.target.closest('#add-to-cart-form');
     if (!form) return;
-    
+
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Prevent duplicate submissions
     if (addToCartProcessing.has(form)) return;
     addToCartProcessing.add(form);
-    
+
     if (!window.StaticData) {
       addToCartProcessing.delete(form);
       return;
     }
-    
+
     const formData = new FormData(form);
     const productId = formData.get('id');
     const qty = Number(formData.get('qty')) || 1;
@@ -161,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
       addToCartProcessing.delete(form);
       return;
     }
-    
+
     // Add to cart
     window.StaticData.addToCart(productId, qty, product);
     const cartState = fetchCart();
@@ -198,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
       notice.textContent = 'Added to cart. Proceed to cart or keep shopping.';
       notice.style.display = 'block';
     }
-    
+
     // Reset processing flag after delay
     setTimeout(() => {
       addToCartProcessing.delete(form);
@@ -212,26 +250,26 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', (e) => {
     const el = e.target.closest('a, button');
     if (!el) return;
-    
+
     // Skip form inputs and selects (not clickable elements for tracking)
     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
       return;
     }
-    
+
     // Fire linkClicked for ALL clicks (header nav, buttons, product cards, CTAs, etc.)
     handleLinkClick(el, e);
-    
+
     // Special handling for Add to Cart button - let form submit handler fire addToCart separately
     if (el.type === 'submit' && el.closest('#add-to-cart-form')) {
       // linkClicked already fired above, form submit will fire addToCart
       return;
     }
-    
+
     // Special handling for remove item - handled in cart.html
     if (el.hasAttribute('data-action') && el.getAttribute('data-action') === 'remove-item') {
       return;
     }
-    
+
     // Special handling for checkout button - handled in cart.html
     if (el.closest('#checkout-button')) {
       return;
