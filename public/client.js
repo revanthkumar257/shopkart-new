@@ -84,6 +84,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Resolvers for Link Tracking
   const getLinkName = (element) => {
     // Priority: visible text -> aria-label -> title -> product name -> fallback
+    
+    // FIX: Force "Cart" for the cart link to avoid "Cart 0", "Cart 1" etc.
+    if (element.closest('[data-role="cart-link"]') || element.closest('.cart-link')) {
+      return 'Cart';
+    }
+
     let name = element.textContent?.trim();
     if (!name) name = element.getAttribute('aria-label');
     if (!name) name = element.getAttribute('title');
