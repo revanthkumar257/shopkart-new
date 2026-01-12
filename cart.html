@@ -14,6 +14,38 @@
     (function () {
       const user = window.StaticData ? window.StaticData.getUser() : null;
       const url = window.location;
+
+      // Calculate Cart State for Data Layer
+      const cart = window.StaticData.getCart();
+      const items = cart.items || [];
+      const total = window.StaticData.getCartTotal();
+
+      const productsArray = items.map(item => {
+        const product = (typeof PRODUCTS !== 'undefined') ? PRODUCTS.find(p => p.id === item.productId) : null;
+        const mrp = product ? (product.mrp || item.price) : item.price;
+        let discountAmount = 0;
+        let discountPercent = 0;
+        if (mrp > item.price) {
+          discountAmount = mrp - item.price;
+          discountPercent = Math.round((discountAmount / mrp) * 100);
+        }
+        const variantStr = [item.size, item.color].filter(Boolean).join(' ');
+
+        return {
+          productID: item.productId,
+          productName: item.productName,
+          category: product ? product.category : '',
+          price: item.price,
+          originalPrice: mrp,
+          discountAmount: discountAmount,
+          discountPercent: discountPercent,
+          quantity: item.qty,
+          variant: variantStr,
+          size: item.size || '',
+          color: item.color || ''
+        };
+      });
+
       window.adobeDataLayer.push({
         event: "pageLoaded",
         xdmPageLoad: {
@@ -36,6 +68,24 @@
             urlWithQSP: url.href,
             urlWithoutQSP: url.origin + url.pathname
           }
+        },
+        xdmCommerce: {
+          cart: {
+            startdate: new Date().toISOString(),
+            status: "view",
+            totalQuantity: items.reduce((sum, item) => sum + item.qty, 0),
+            totalValueBeforeCoupon: items.reduce((sum, item) => sum + (item.price * item.qty), 0), // Base subtotal of selling prices
+            totalValue: total,
+            orderTotalAfterCoupon: total,
+            couponCode: window.StaticData.getCoupon() ? window.StaticData.getCoupon().code : "",
+            couponDiscountAmount: window.StaticData.getCoupon() ? (window.StaticData.getCartSubtotal() - window.StaticData.getCartTotal()) : 0
+          },
+          products: productsArray.map(p => ({
+            ...p,
+            productTotalValue: p.price * p.quantity,
+            discountedUnitPrice: p.price,
+            productTotalValueAfterDiscount: p.price * p.quantity // Coupon effects handled at order level usually
+          }))
         }
       });
     })();
@@ -105,14 +155,30 @@
               </td>
               <td>
                   ${item.productName}
+                  ${item.size ? `<br/><span class="muted">Size: ${item.size}</span>` : ''}
                   ${item.color ? `<br/><span class="muted">Color: ${item.color}</span>` : ''}
                   <br/><span class="muted">${item.brand}</span>
               </td>
-              <td>$${item.price}</td>
-              <td>${item.qty}</td>
+              <td>
+                  $${item.price}
+                  ${(function () {
+              const product = typeof PRODUCTS !== 'undefined' ? PRODUCTS.find(p => p.id === item.productId) : null;
+              if (product && product.mrp > item.price) {
+                const diff = product.mrp - item.price;
+                const pct = Math.round((diff / product.mrp) * 100);
+                return `<br/><span style="color:green;font-size:0.85em;">${pct}% off</span>`;
+              }
+              return '';
+            })()}
+              </td>
+              <td style="white-space:nowrap;">
+                  <button class="button small secondary qty-btn" data-action="decrease" data-id="${item.productId}" data-size="${item.size || ''}" data-color="${item.color || ''}" style="padding:2px 8px;">-</button>
+                  <span style="margin:0 8px;display:inline-block;width:20px;text-align:center;">${item.qty}</span>
+                  <button class="button small secondary qty-btn" data-action="increase" data-id="${item.productId}" data-size="${item.size || ''}" data-color="${item.color || ''}" style="padding:2px 8px;">+</button>
+              </td>
               <td>$${(item.price * item.qty).toFixed(2)}</td>
               <td>
-                <button class="button secondary" data-action="remove-item" data-product-id="${item.productId}">Remove</button>
+                <button class="button secondary" data-action="remove-item" data-id="${item.productId}" data-size="${item.size || ''}" data-color="${item.color || ''}">Remove</button>
               </td>
             </tr>
           `;
@@ -159,8 +225,7 @@
 
         container.innerHTML = html;
 
-        // Attach Coupon Listeners (Delegated or Direct)
-        // Since we re-render HTML, we can attach to new elements
+        // Attach Coupon Listeners
         document.querySelectorAll('.apply-coupon-btn').forEach(btn => {
           btn.addEventListener('click', (e) => {
             const code = e.target.getAttribute('data-code');
@@ -190,7 +255,7 @@
             const currentCart = window.StaticData.getCart();
             const currentTotal = window.StaticData.getCartTotal();
             const totalQuantity = currentCart.items.reduce((sum, item) => sum + item.qty, 0);
-            // Generate Product Details for beginCheckout
+
             const productsArray = currentCart.items.map(item => {
               const product = typeof PRODUCTS !== 'undefined' ? PRODUCTS.find(p => p.id === item.productId) : null;
               const mrp = product ? (product.mrp || item.price) : item.price;
@@ -200,6 +265,9 @@
                 discountAmount = mrp - item.price;
                 discountPercent = Math.round((discountAmount / mrp) * 100);
               }
+              // Construct variant string
+              const variantStr = [item.size, item.color].filter(Boolean).join(' ');
+
               return {
                 productID: item.productId,
                 productName: item.productName,
@@ -209,7 +277,9 @@
                 discountAmount: discountAmount,
                 discountPercent: discountPercent,
                 quantity: item.qty,
-                variant: item.color || ''
+                variant: variantStr,
+                size: item.size || '',
+                color: item.color || ''
               };
             });
 
@@ -228,53 +298,91 @@
             }, 100);
           });
         }
-
-        // Attach event listeners using event delegation to prevent duplicates
-        const removeItemHandler = (e) => {
-          const btn = e.target.closest('[data-action="remove-item"]');
-          if (!btn) return;
-
-          e.preventDefault();
-          e.stopPropagation();
-          const productId = btn.dataset.productId;
-
-          // Find product info before removing
-          const cart = window.StaticData.getCart();
-          const itemToRemove = cart.items.find(item => item.productId === productId);
-
-          window.StaticData.removeFromCart(productId);
-          renderCart();
-          const cartState = window.StaticData.getCart();
-          const count = cartState.items.reduce((sum, item) => sum + item.qty, 0);
-          const cartBadge = document.querySelector('[data-role="cart-count"]');
-          if (cartBadge) {
-            cartBadge.textContent = count;
-          }
-
-          if (itemToRemove) {
-            const dl = window.adobeDataLayer || [];
-            dl.push({
-              event: "removeFromCart",
-              xdmCommerce: {
-                product: {
-                  productID: itemToRemove.productId,
-                  productName: itemToRemove.productName,
-                  quantity: 1
-                }
-              }
-            });
-          }
-        };
-
-        // Use event delegation - attach once to container
-        const cartContent = document.getElementById('cart-content');
-        if (cartContent) {
-          cartContent.removeEventListener('click', removeItemHandler);
-          cartContent.addEventListener('click', removeItemHandler);
-        }
       }
 
+      // Main Execution
       renderCart();
+
+      // Event Delegation (Attached ONCE to cart-content)
+      const cartContent = document.getElementById('cart-content');
+      if (cartContent) {
+        // Remove old listener if needed (though we are running clean here usually)
+        // We use a named function to allow removal if we wanted, but anon is fine for simple page life
+        cartContent.addEventListener('click', (e) => {
+          // Handle Remove
+          const removeBtn = e.target.closest('[data-action="remove-item"]');
+          if (removeBtn) {
+            const productId = removeBtn.dataset.id;
+            const size = removeBtn.dataset.size;
+            const color = removeBtn.dataset.color;
+
+            // Find item for tracking
+            const cart = window.StaticData.getCart();
+            const itemToRemove = cart.items.find(item =>
+              item.productId === productId &&
+              (item.size || '') === size &&
+              (item.color || '') === color
+            );
+
+            window.StaticData.removeFromCart(productId, size, color);
+            renderCart();
+            // Update badge
+            const newCount = window.StaticData.getCartCount();
+            const badge = document.querySelector('[data-role="cart-count"]');
+            if (badge) badge.textContent = newCount;
+
+            if (itemToRemove) {
+              const dl = window.adobeDataLayer || [];
+              const variantStr = [size, color].filter(Boolean).join(' ');
+              dl.push({
+                event: "removeFromCart",
+                xdmCommerce: {
+                  product: {
+                    productID: itemToRemove.productId,
+                    productName: itemToRemove.productName,
+                    quantity: itemToRemove.qty,
+                    variant: variantStr,
+                    size: size,
+                    color: color
+                  }
+                }
+              });
+            }
+            return;
+          }
+
+          // Handle Qty
+          const qtyBtn = e.target.closest('.qty-btn');
+          if (qtyBtn) {
+            const action = qtyBtn.dataset.action;
+            const productId = qtyBtn.dataset.id;
+            const size = qtyBtn.dataset.size;
+            const color = qtyBtn.dataset.color;
+
+            const cart = window.StaticData.getCart();
+            const item = cart.items.find(item =>
+              item.productId === productId &&
+              (item.size || '') === size &&
+              (item.color || '') === color
+            );
+
+            if (item) {
+              let newQty = item.qty;
+              if (action === 'increase') newQty++;
+              if (action === 'decrease') newQty = Math.max(1, newQty - 1);
+
+              if (newQty !== item.qty) {
+                window.StaticData.updateItemQty(productId, size, color, newQty);
+                renderCart();
+                // Update badge
+                const newCount = window.StaticData.getCartCount();
+                const badge = document.querySelector('[data-role="cart-count"]');
+                if (badge) badge.textContent = newCount;
+              }
+            }
+          }
+        });
+      }
 
       // Update user info
       const user = window.StaticData ? window.StaticData.getUser() : null;

@@ -32,20 +32,31 @@
       if (!cart.items || !Array.isArray(cart.items)) {
         cart.items = [];
       }
-      // Check if existing item has same ID AND same Color
-      const existing = cart.items.find(item => item.productId === productId && item.color === product.color);
+
+      // Normalize variants
+      const color = product.color || '';
+      const size = product.size || '';
+
+      // Check if existing item has same ID AND same Color AND same Size
+      const existing = cart.items.find(item =>
+        item.productId === productId &&
+        (item.color || '') === color &&
+        (item.size || '') === size
+      );
 
       if (existing) {
         existing.qty += qty;
       } else {
         cart.items.push({
+          itemId: `${productId}-${size}-${color}`.replace(/[^a-zA-Z0-9-]/g, ''),
           productId: product.id,
           productName: product.name,
           price: product.price,
           qty: qty,
           image: product.image,
           brand: product.brand,
-          color: product.color || ''
+          color: color,
+          size: size
         });
       }
 
@@ -53,9 +64,29 @@
       return this.getCart();
     },
 
-    removeFromCart: function (productId) {
+    // New: Update Qty by Item Composite
+    updateItemQty: function (productId, size, color, newQty) {
       const cart = this.getCart();
-      cart.items = cart.items.filter(item => item.productId !== productId);
+      const item = cart.items.find(item =>
+        item.productId === productId &&
+        (item.color || '') === (color || '') &&
+        (item.size || '') === (size || '')
+      );
+
+      if (item) {
+        item.qty = Math.max(1, newQty);
+        this.setCart(cart);
+      }
+      return this.getCart();
+    },
+
+    removeFromCart: function (productId, size, color) {
+      const cart = this.getCart();
+      cart.items = cart.items.filter(item =>
+        !(item.productId === productId &&
+          (item.color || '') === (color || '') &&
+          (item.size || '') === (size || ''))
+      );
       this.setCart(cart);
       return this.getCart();
     },

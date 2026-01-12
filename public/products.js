@@ -16,7 +16,8 @@ const PRODUCTS = [
       ['Wireless', 'Bluetooth 5.3']
     ],
     position: 1,
-    image: './public/images/electronics/Mivi Fort Sonic 150 Soundbar, 2.1 Channel, Multi-Input & EQ Modes, BT v5.3 150 W Bluetooth Soundbar  (Black, Silver, 2.1 Channel.png'
+    image: './public/images/electronics/Mivi Fort Sonic 150 Soundbar, 2.1 Channel, Multi-Input & EQ Modes, BT v5.3 150 W Bluetooth Soundbar  (Black, Silver, 2.1 Channel.png',
+    availableColors: ['Black', 'Silver']
   },
   {
     id: 'tv-tcl-uhd',
@@ -52,7 +53,8 @@ const PRODUCTS = [
       ['Charging', 'USB']
     ],
     position: 3,
-    image: './public/images/electronics/PHILIPS BT310115, Lift & Trim Tech, Effortless Even Trim Trimmer 45 min Runtime 10 Length Settings  (White).png'
+    image: './public/images/electronics/PHILIPS BT310115, Lift & Trim Tech, Effortless Even Trim Trimmer 45 min Runtime 10 Length Settings  (White).png',
+    availableColors: ['White', 'Black']
   },
   {
     id: 'headphones-jbl',
@@ -70,7 +72,8 @@ const PRODUCTS = [
       ['ANC', 'Active']
     ],
     position: 4,
-    image: './public/images/electronics/JBL Tune 770NC Wireless Over Ear ANC Headphones with Mic, Upto 70 Hrs Battery, Speed Charge  5 min Charge Gives up to 3H of Playback.png'
+    image: './public/images/electronics/JBL Tune 770NC Wireless Over Ear ANC Headphones with Mic, Upto 70 Hrs Battery, Speed Charge  5 min Charge Gives up to 3H of Playback.png',
+    availableColors: ['Black', 'Blue', 'White']
   },
   {
     id: 'pixel-10-pro',
@@ -88,7 +91,8 @@ const PRODUCTS = [
       ['Display', '120Hz AMOLED']
     ],
     position: 5,
-    image: './public/images/mobiles/Google Pixel 10 Pro (Moonstone, 256 GB)  (16 GB RAM).png'
+    image: './public/images/mobiles/Google Pixel 10 Pro (Moonstone, 256 GB)  (16 GB RAM).png',
+    availableColors: ['Moonstone', 'Obsidian', 'Porcelain', 'Hazel']
   },
   {
     id: 'iphone-16',
@@ -106,7 +110,8 @@ const PRODUCTS = [
       ['Security', 'Face ID']
     ],
     position: 6,
-    image: './public/images/mobiles/Apple iPhone 16 (Black, 128 GB).png'
+    image: './public/images/mobiles/Apple iPhone 16 (Black, 128 GB).png',
+    availableColors: ['Black', 'Blue', 'Green', 'Pink', 'Yellow']
   },
   {
     id: 'galaxy-s28',
@@ -124,7 +129,8 @@ const PRODUCTS = [
       ['Charging', 'Fast']
     ],
     position: 7,
-    image: './public/images/mobiles/Samsung Galaxy S28.png'
+    image: './public/images/mobiles/Samsung Galaxy S28.png',
+    availableColors: ['Phantom Black', 'Cream', 'Green', 'Lavender']
   },
   {
     id: 'oppo-find-x9',
@@ -142,7 +148,8 @@ const PRODUCTS = [
       ['Charging', 'Fast']
     ],
     position: 8,
-    image: './public/images/mobiles/OPPO Find X9.png'
+    image: './public/images/mobiles/OPPO Find X9.png',
+    availableColors: ['Black', 'Gold', 'Silver']
   },
   {
     id: 'sneakers-yoho',
@@ -160,7 +167,9 @@ const PRODUCTS = [
       ['Use', 'Casual']
     ],
     position: 9,
-    image: './public/images/fashion/YOHO Colored Suede Fashion Sneakers.png'
+    image: './public/images/fashion/YOHO Colored Suede Fashion Sneakers.png',
+    availableSizes: ['7', '8', '9', '10', '11'],
+    availableColors: ['Multi-color', 'Blue', 'Red']
   },
   {
     id: 'denim-jacket',
@@ -178,7 +187,9 @@ const PRODUCTS = [
       ['Closure', 'Buttons']
     ],
     position: 10,
-    image: './public/images/fashion/Men Solid Denim Jacket.png'
+    image: './public/images/fashion/Men Solid Denim Jacket.png',
+    availableSizes: ['S', 'M', 'L', 'XL', 'XXL'],
+    availableColors: ['Blue', 'Black']
   },
   {
     id: 'striped-tee',
@@ -196,7 +207,9 @@ const PRODUCTS = [
       ['Fit', 'Regular']
     ],
     position: 11,
-    image: './public/images/fashion/Men Striped ZiP Neck Tshirt.png'
+    image: './public/images/fashion/Men Striped ZiP Neck Tshirt.png',
+    availableSizes: ['S', 'M', 'L', 'XL'],
+    availableColors: ['Navy/White', 'Black/Grey', 'Red/Blue']
   },
   {
     id: 'jeans-loose-fit',
@@ -214,7 +227,9 @@ const PRODUCTS = [
       ['Wash', 'Light blue']
     ],
     position: 12,
-    image: './public/images/fashion/Men Loose Fit Mid Rise Light Blue Jeans.png'
+    image: './public/images/fashion/Men Loose Fit Mid Rise Light Blue Jeans.png',
+    availableSizes: ['28', '30', '32', '34', '36', '38'],
+    availableColors: ['Light Blue', 'Dark Blue', 'Black']
   },
   {
     id: 'key-holder',
@@ -232,7 +247,8 @@ const PRODUCTS = [
       ['Mount', 'Wall']
     ],
     position: 13,
-    image: './public/images/home/Premium HomePremium Home is Our Happy Place for Home and Office Decor Wood Key Holder  (7 Hooks, Brown).png'
+    image: './public/images/home/Premium HomePremium Home is Our Happy Place for Home and Office Decor Wood Key Holder  (7 Hooks, Brown).png',
+    availableColors: ['Brown', 'Black']
   },
   {
     id: 'home-temple',
@@ -250,7 +266,8 @@ const PRODUCTS = [
       ['Height', '47']
     ],
     position: 14,
-    image: './public/images/home/homewey decor Engineered Wood Home Temple  (Height 47, DIY(Do-It-Yourself)).png'
+    image: './public/images/home/homewey decor Engineered Wood Home Temple  (Height 47, DIY(Do-It-Yourself)).png',
+    availableColors: ['Walnut', 'Teak']
   },
   {
     id: 'cookware-impex',
@@ -268,7 +285,8 @@ const PRODUCTS = [
       ['Base', 'Induction']
     ],
     position: 15,
-    image: './public/images/home/IMPEX 6 Pcs Nonstick Granite FKTM 6 Festival Gift Set Induction Bottom Non-Stick Coated Cookware Set  (Aluminium, 6 - Piece).png'
+    image: './public/images/home/IMPEX 6 Pcs Nonstick Granite FKTM 6 Festival Gift Set Induction Bottom Non-Stick Coated Cookware Set  (Aluminium, 6 - Piece).png',
+    availableColors: ['Red', 'Black', 'Grey']
   },
   {
     id: 'makeup-brush-set',
@@ -286,7 +304,8 @@ const PRODUCTS = [
       ['Use', 'Face and eye']
     ],
     position: 16,
-    image: './public/images/beauty/MINARA Makeup Brush Applicator Set of 15 with Premium Leather Pouch  (Pack of 15).png'
+    image: './public/images/beauty/MINARA Makeup Brush Applicator Set of 15 with Premium Leather Pouch  (Pack of 15).png',
+    availableColors: ['Black', 'Pink']
   },
   {
     id: 'eye-cream',

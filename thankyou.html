@@ -82,7 +82,12 @@
             discountAmount: discountAmount,
             discountPercent: discountPercent,
             quantity: p.qty,
-            variant: p.color || p.variant || '' // Persisted color
+            variant: p.color || p.variant || '', // Persisted color
+            size: p.size || '',
+            color: p.color || '',
+            productTotalValue: p.price * p.qty,
+            discountedUnitPrice: p.price,
+            productTotalValueAfterDiscount: p.price * p.qty // Final value paid for this line item
           };
         });
 
@@ -97,7 +102,53 @@
               couponDiscountAmount: order.discountAmount || 0,
               orderTotalBeforeCoupon: order.subtotal || order.revenue,
               orderTotalAfterCoupon: order.revenue,
-              // We could include other attributes like paymentMethod here if per schema, but sticking to basics+coupon
+              totalQuantity: order.products.reduce((sum, item) => sum + item.qty, 0), // Adding totalQuantity to Order object as well for consistency
+              totalDiscountAmount: (order.subtotal - order.revenue) + productsArray.reduce((acc, p) => acc + (p.discountAmount * p.quantity), 0)
+              // Wait, previous calc was totalDiscountAmount = (MRP_Sum - Subtotal) + (Subtotal - Total).
+              // Let's replicate that logic accurately.
+              // We need MRP sum again.
+            },
+            products: productsArray
+          }
+        });
+
+        // Re-calculate Total Discount correctly before push
+        let totalSellingPriceSum = 0;
+        let totalMrpSum = 0;
+
+        productsArray.forEach(p => {
+          totalMrpSum += (p.originalPrice * p.quantity);
+          totalSellingPriceSum += (p.price * p.quantity);
+        });
+
+        // Subtotal = Sum(SellingPrice * Qty)
+        // Total = Subtotal - CouponDiscount
+
+        const subtotal = order.subtotal || order.revenue; // matches totalSellingPriceSum usually
+        const couponDiscount = order.discountAmount || 0;
+
+        // Total Discount = (MRP Sum - Selling Price Sum) + Coupon Discount
+        const totalDiscount = (totalMrpSum - totalSellingPriceSum) + couponDiscount;
+
+        window.adobeDataLayer.pop();
+        window.adobeDataLayer.push({
+          event: "purchase",
+          xdmCommerce: {
+            order: {
+              orderID: order.id,
+              totalValue: order.revenue,
+              currency: "USD",
+              couponCode: order.couponCode || '',
+              couponDiscountAmount: order.discountAmount || 0,
+
+              // Corrected field as per request: Sum of productTotalValueAfterProductDiscount (before coupon)
+              orderTotalBeforeCoupon: totalSellingPriceSum,
+
+              orderTotalAfterCoupon: order.revenue,
+              totalQuantity: order.products.reduce((sum, item) => sum + item.qty, 0),
+
+              // Total Savings (Product Level Off + Order Level Off)
+              totalDiscountAmount: totalDiscount
             },
             products: productsArray
           }
@@ -207,9 +258,10 @@
       `;
 
       order.products.forEach((p) => {
+        const variantDisplay = [p.size ? `Size: ${p.size}` : '', p.color ? `Color: ${p.color}` : ''].filter(Boolean).join(', ');
         html += `<li>
           ${p.productName} 
-          ${p.color ? `<span style="color:#666;font-size:0.9em;">(${p.color})</span>` : ''} 
+          ${variantDisplay ? `<span style="color:#666;font-size:0.9em;">(${variantDisplay})</span>` : ''} 
           — Qty ${p.qty} — $${(p.price * p.qty).toFixed(2)}
         </li>`;
       });
@@ -253,13 +305,8 @@
             let discountAmount = 0;
             let discountPercent = 0;
             let originalPrice = p.price;
-            // Re-derive if possible or trust stored
-            // stored p doesn't have originalPrice explicitly unless we stored it in order object?
-            // we stored it in the order object in checkout.html? Wait, checkout.html creates order object.
-            // checkout.html line 222: maps cart items to order products. It saves price, qty, image, brand.
-            // IT DOES NOT SAVE originalPrice/mrp! We need to derive it again here using PRODUCTS global.
-
             let category = "";
+
             if (typeof PRODUCTS !== 'undefined') {
               const product = PRODUCTS.find(prod => prod.id === p.productId);
               if (product) {
@@ -281,7 +328,9 @@
               discountAmount: discountAmount,
               discountPercent: discountPercent,
               quantity: p.qty,
-              variant: p.variant || '' // Variant/color matches?
+              variant: p.variant || [p.size, p.color].filter(Boolean).join(' '),
+              size: p.size || '',
+              color: p.color || ''
             };
           });
 

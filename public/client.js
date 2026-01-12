@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Resolvers for Link Tracking
   const getLinkName = (element) => {
     // Priority: visible text -> aria-label -> title -> product name -> fallback
-    
+
     // FIX: Force "Cart" for the cart link to avoid "Cart 0", "Cart 1" etc.
     if (element.closest('[data-role="cart-link"]') || element.closest('.cart-link')) {
       return 'Cart';
@@ -209,6 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const productId = formData.get('id');
     const qty = Number(formData.get('qty')) || 1;
     const color = formData.get('color') || '';
+    const size = formData.get('size') || ''; // Capture size
     const productName = form.dataset.productName;
     const price = Number(form.dataset.price);
 
@@ -223,12 +224,15 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Add to cart with Color
-    const itemToAdd = { ...product, color: color };
+    // Add to cart with Color & Size
+    const itemToAdd = { ...product, color: color, size: size };
     window.StaticData.addToCart(productId, qty, itemToAdd);
-    const cartState = fetchCart();
-    const count = cartState.items.reduce((sum, item) => sum + item.qty, 0) || 0;
-    updateCartBadge(count);
+    const cartState = fetchCart(); // fetchCart now needs to be aware of items? No, getCartCount handles it
+    // Wait, fetchCart locally in client.js also sums up qty.
+    // Let's check fetchCart implementation in this file specifically
+    // It sums item.qty. That logic remains valid.
+
+    updateCartBadge(window.StaticData.getCartCount());
 
     // Push addToCart event (ONLY ONCE, separate from linkClicked)
     const category = form.dataset.category || '';
@@ -239,6 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
       discountAmount = mrp - price;
       discountPercent = Math.round((discountAmount / mrp) * 100);
     }
+
+    // Construct variant string
+    const variantStr = [size, color].filter(Boolean).join(' ');
 
     const dl = window.adobeDataLayer || [];
     dl.push({
@@ -262,7 +269,12 @@ document.addEventListener('DOMContentLoaded', () => {
           discountAmount: discountAmount,
           discountPercent: discountPercent,
           quantity: qty,
-          variant: color // Tracking color as variant
+          variant: variantStr,
+          size: size,
+          color: color,
+          productTotalValue: price * qty,
+          discountedUnitPrice: price,
+          productTotalValueAfterDiscount: price * qty
         }
       }
     });

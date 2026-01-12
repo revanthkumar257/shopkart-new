@@ -107,15 +107,6 @@
           console.log("ACDL: orderFailed tracked");
         }
 
-        // Fire Checkout View Event (Tracks products at checkout step)
-        // Ensure we only fire if cart is not empty (logic below handles empty cart UI return, but we want to track before that if valid?)
-        // Actually, if cart is empty, we probably don't want to fire checkoutView with 0 items? Or do we?
-        // Let's place it BEFORE empty check? Or AFTER?
-        // If empty, user sees "Cart is empty". Maybe we shouldn't fire checkoutView?
-        // Standard is: View Checkout is fired when user views the checkout page. If empty, it's still a view? 
-        // But the products array would be empty.
-        // Let's fire it only if cart has items.
-
         if (!cart.items || cart.items.length === 0) {
           container.innerHTML = '<p>Your cart is empty. <a href="./plp.html">Add items</a> to continue.</p>';
           return;
@@ -131,6 +122,9 @@
             discountAmount = mrp - item.price;
             discountPercent = Math.round((discountAmount / mrp) * 100);
           }
+          // Construct variant string
+          const variantStr = [item.size, item.color].filter(Boolean).join(' ');
+
           return {
             productID: item.productId,
             productName: item.productName,
@@ -140,7 +134,12 @@
             discountAmount: discountAmount,
             discountPercent: discountPercent,
             quantity: item.qty,
-            variant: item.color || ''
+            variant: variantStr,
+            size: item.size || '',
+            color: item.color || '',
+            productTotalValue: item.price * item.qty,
+            discountedUnitPrice: item.price,
+            productTotalValueAfterDiscount: item.price * item.qty
           };
         });
 
@@ -149,7 +148,71 @@
           xdmCommerce: {
             cart: {
               totalQuantity: cart.items.reduce((sum, item) => sum + item.qty, 0),
-              totalValue: total
+              totalValueBeforeDiscount: subtotal, // Original subtotal
+              totalValue: total, // Final payable
+              totalDiscountAmount: (subtotal - total), // Total savings (product + coupon)
+              couponCode: coupon ? coupon.code : '',
+              couponDiscountAmount: coupon ? (subtotal - total) : 0, // Simplified if only coupon
+              // Wait, totalDiscountAmount shoudl represent product discount + coupon discount?
+              // subtotal is sum of (selling_price * qty).
+              // total is subtotal - coupon.
+              // so discount here is just coupon discount.
+              // Product level discount is baked into 'price' already in this model.
+              // But the user asked for "totalDiscountAmount (product + coupon)".
+              // That requires summing (MRP - Price)*Qty + CouponDiscount.
+              // Let's calculate that properly.
+            },
+            products: productsArray
+          }
+        });
+
+        // Let's refine the logic inside the push to be cleaner and matching the thought process above in a reliable way
+        const totalQty = cart.items.reduce((sum, i) => sum + i.qty, 0);
+        let totalMrpSum = 0;
+        let totalSellingPriceSum = 0;
+
+        productsArray.forEach(p => {
+          totalMrpSum += (p.originalPrice * p.quantity);
+          totalSellingPriceSum += (p.price * p.quantity);
+        });
+
+        // totalValueBeforeCoupon matches the definition of "Cart Subtotal" (sum of selling prices before order-level discounts)
+        // However, the REQUEST asks for "totalValueBeforeCoupon = sum of productTotalValueAfterProductDiscount (before coupon)"
+        // "productTotalValueAfterProductDiscount" is price * qty.
+        // So totalValueBeforeCoupon = totalSellingPriceSum.
+
+        const couponDiscount = coupon ? (totalSellingPriceSum - total) : 0;
+
+        // Final sanity check on total
+        // Total = SellingPriceSum - CouponDiscount
+
+        // Wait, "totalValueBeforeDiscount" in checkout previously was MRP Sum.
+        // The user request SPECIFICALLY asked for "totalValueBeforeCoupon".
+        // Issue 1: "totalValueBeforeCoupon is incorrectly populated with final totalValue"
+        // "It should represent subtotal before coupon".
+
+        // So I will use totalSellingPriceSum for totalValueBeforeCoupon.
+        // And I will keep totalValueBeforeDiscount as MRP sum if I want to be extra thorough, checking what I did in previous steps.
+        // Use specifically named field "totalValueBeforeCoupon" as requested.
+
+        // Re-reading user request: "totalValueBeforeCoupon = sum of productTotalValueAfterProductDiscount (before coupon)"
+
+        window.adobeDataLayer.pop();
+        window.adobeDataLayer.push({
+          event: "checkoutView",
+          xdmCommerce: {
+            cart: {
+              totalQuantity: totalQty,
+              totalValueBeforeCoupon: totalSellingPriceSum, // SUM(Price * Qty)
+              totalValue: total,
+              couponCode: coupon ? coupon.code : '',
+              couponDiscountAmount: couponDiscount,
+
+              // Optional but good for complete picture if we want to show total SAVINGS (Product + Coupon)
+              // The user didn't explicitly forbid extra fields, but asked for correctness of specific ones.
+              // I'll stick to the requested fields to avoid clutter, but "totalDiscountAmount" was in previous requirements.
+              // "totalDiscountAmount" usually implies (MRP - Final).
+              totalDiscountAmount: (totalMrpSum - total)
             },
             products: productsArray
           }
@@ -220,6 +283,18 @@
               </label>
             </div>
             
+            <h3 style="margin-top:24px;">Payment Simulation</h3>
+            <div class="form-group" style="display:flex;flex-direction:column;gap:8px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="radio" name="paymentResult" value="success" required checked />
+                <span>Payment Success</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="radio" name="paymentResult" value="failure" required />
+                <span>Payment Failure</span>
+              </label>
+            </div>
+            
             <button class="button primary" type="submit" style="margin-top:16px;">Place Order</button>
           </form>
         </div>`;
@@ -257,6 +332,13 @@
             return;
           }
 
+          // Payment Simulation
+          const paymentResult = formData.get('paymentResult');
+          if (paymentResult === 'failure') {
+            window.location.href = `./checkout.html?error=Payment Failed: Transaction Declined`;
+            return;
+          }
+
           // Create order
           const orderId = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
           const currentTotal = window.StaticData.getCartTotal();
@@ -277,8 +359,9 @@
               qty: item.qty,
               image: item.image,
               brand: item.brand,
-              color: item.color || '', // PERSIST COLOR
-              variant: item.color || ''
+              color: item.color || '',
+              size: item.size || '',
+              variant: [item.size, item.color].filter(Boolean).join(' ')
             })),
             customerName: data.name.trim(),
             email: data.email.trim(),
