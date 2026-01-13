@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkout | ShopKart</title>
+  <link rel="stylesheet" href="./public/styles.css" />
+  <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
+  <script src="./public/products.js"></script>
+  <script src="./public/static-data.js"></script>
+  <script src="./public/data-layer-helper.js"></script>
+  <script>
+    (function () {
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      const url = window.location;
+      window.adobeDataLayer.push({
+        event: "pageLoaded",
+        xdmPageLoad: {
+          custData: {
+            loginStatus: user ? "logged-in" : "guest",
+            platform: "desktop web",
+            language: "en"
+          },
+          web: {
+            webPageDetails: {
+              siteName: "shopkart",
+              pageName: "Checkout",
+              pageType: "checkout",
+              channel: "web"
+            }
+          },
+          pageUrl: {
+            dataLayerUrl: url.href,
+            deUrl: url.href,
+            urlWithQSP: url.href,
+            urlWithoutQSP: url.origin + url.pathname
+          }
+        }
+      });
+    })();
+  </script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js"
+    async></script>
+</head>
+
+<body data-page-type="checkout">
+  <header>
+    <div class="topbar">
+      <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
+      <form class="search" method="GET" action="./plp.html">
+        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more"
+          aria-label="Search products" value="" />
+        <button type="submit">Search</button>
+      </form>
+      <div class="actions">
+        <span id="user-info"></span>
+        <a href="./account.html" aria-label="Account" id="account-link">Account</a>
+        <a href="./logout.html" aria-label="Logout" id="logout-link" style="display:none;">Logout</a>
+        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge"
+            data-role="cart-count">0</span></a>
+      </div>
+    </div>
+    <div class="categories">
+      <a href="./plp.html?cat=electronics">Electronics</a>
+      <a href="./plp.html?cat=mobiles">Mobiles</a>
+      <a href="./plp.html?cat=fashion">Fashion</a>
+      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=beauty">Beauty</a>
+      <a href="./plp.html?cat=all">All</a>
+    </div>
+  </header>
+  <main>
+    <h2>Checkout</h2>
+    <div id="checkout-content">
+      <p>Loading...</p>
+    </div>
+  </main>
+  <footer>
+    <p>ShopKart marketplace</p>
+  </footer>
+  <script src="./public/adl-utils.js"></script>
+  <script src="./public/client.js"></script>
+  <script>
+    (function () {
+      function renderCheckout() {
+        const cart = window.StaticData.getCart();
+        const total = window.StaticData.getCartTotal();
+        const subtotal = window.StaticData.getCartSubtotal();
+        const coupon = window.StaticData.getCoupon();
+        const user = window.StaticData.getUser();
+        const container = document.getElementById('checkout-content');
+
+        // Handle Order Failed Event
+        const error = new URLSearchParams(window.location.search).get('error');
+        if (error) {
+          window.adobeDataLayer.push({
+            event: "orderFailed",
+            xdmCommerce: {
+              order: {
+                orderType: "checkout",
+                errorType: "validation",
+                errorMessage: error
+              }
+            }
+          });
+          console.log("ACDL: orderFailed tracked");
+        }
+
+        if (!cart.items || cart.items.length === 0) {
+          container.innerHTML = '<p>Your cart is empty. <a href="./plp.html">Add items</a> to continue.</p>';
+          return;
+        }
+
+        const productsArray = cart.items.map(item => {
+          // Re-derive price details if possible
+          const product = typeof PRODUCTS !== 'undefined' ? PRODUCTS.find(p => p.id === item.productId) : null;
+          const mrp = product ? (product.mrp || item.price) : item.price;
+          let discountAmount = 0;
+          let discountPercent = 0;
+          if (mrp > item.price) {
+            discountAmount = mrp - item.price;
+            discountPercent = Math.round((discountAmount / mrp) * 100);
+          }
+          // Construct variant string
+          const variantStr = [item.size, item.color].filter(Boolean).join(' ');
+
+          return {
+            productID: item.productId,
+            sku: product ? product.sku : (item.sku || ''),
+            productName: item.productName,
+            category: product ? product.category : '',
+            price: item.price,
+            productImageUrl: product ? product.productImageUrl : (item.productImageUrl || item.image),
+            originalPrice: mrp,
+            discountAmount: discountAmount,
+            discountPercent: discountPercent,
+            quantity: item.qty,
+            variant: variantStr,
+            size: item.size || '',
+            color: item.color || '',
+            productTotalValue: item.price * item.qty,
+            discountedUnitPrice: item.price,
+            productTotalValueAfterDiscount: item.price * item.qty
+          };
+        });
+
+        window.adobeDataLayer.push({
+          event: "checkoutView",
+          xdmCommerce: {
+            cart: {
+              totalQuantity: cart.items.reduce((sum, item) => sum + item.qty, 0),
+              totalValueBeforeCoupon: subtotal, // Original subtotal (Selling Price Sum)
+              totalValue: total, // Final payable
+              totalDiscountAmount: (subtotal - total), // Coupon Savings
+              couponCode: coupon ? coupon.code : '',
+              couponDiscountAmount: coupon ? (subtotal - total) : 0,
+            },
+            products: productsArray
+          }
+        });
+        console.log("ACDL: checkoutView tracked");
+
+        let html = '';
+        if (error) {
+          html += `<div class="notice" style="background:#fee;border-color:#fcc;color:#c00;">${error}</div>`;
+        }
+
+        html += `<div class="summary">
+          <h3>Order Summary</h3>
+          <p><strong>Subtotal:</strong> $${subtotal.toFixed(2)}</p>
+          ${coupon ? `<p style="color:green;"><strong>Discount (${coupon.code}):</strong> -$${(subtotal - total).toFixed(2)}</p>` : ''}
+          <p style="font-size:1.2em;border-top:1px solid #ccc;padding-top:8px;"><strong>Total due:</strong> $${total.toFixed(2)}</p>
+          
+          <form id="checkout-form">
+            <h3>Shipping Information</h3>
+            <div class="form-group">
+              <label for="name">Full Name *</label>
+              <input id="name" name="name" required placeholder="Jane Doe" value="${user ? (user.name || '') : ''}" />
+            </div>
+            <div class="form-group">
+              <label for="email">Email *</label>
+              <input id="email" name="email" type="email" required placeholder="jane@example.com" value="${user ? (user.email || '') : ''}" />
+            </div>
+            <div class="form-group">
+              <label for="phone">Phone Number *</label>
+              <input id="phone" name="phone" required placeholder="+1 234 567 8900" value="" />
+            </div>
+            <div class="form-group">
+              <label for="addressLine1">Address Line 1 *</label>
+              <input id="addressLine1" name="addressLine1" required placeholder="123 Main Street" value="" />
+            </div>
+            <div class="form-group">
+              <label for="addressLine2">Address Line 2</label>
+              <input id="addressLine2" name="addressLine2" placeholder="Apt 4B" value="" />
+            </div>
+            <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div>
+                <label for="city">City *</label>
+                <input id="city" name="city" required placeholder="New York" value="" />
+              </div>
+              <div>
+                <label for="state">State *</label>
+                <input id="state" name="state" required placeholder="NY" value="" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="postalCode">Postal Code *</label>
+              <input id="postalCode" name="postalCode" required placeholder="10001" value="" />
+            </div>
+            
+            <h3 style="margin-top:24px;">Payment Method *</h3>
+            <div class="form-group" style="display:flex;flex-direction:column;gap:8px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="radio" name="paymentMethod" value="Card" required checked />
+                <span>Credit/Debit Card</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="radio" name="paymentMethod" value="UPI" required />
+                <span>UPI</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="radio" name="paymentMethod" value="COD" required />
+                <span>Cash on Delivery (COD)</span>
+              </label>
+            </div>
+            
+            <h3 style="margin-top:24px;">Payment Simulation</h3>
+            <div class="form-group" style="display:flex;flex-direction:column;gap:8px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="radio" name="paymentResult" value="success" required checked />
+                <span>Payment Success</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="radio" name="paymentResult" value="failure" required />
+                <span>Payment Failure</span>
+              </label>
+            </div>
+            
+            <button class="button primary" type="submit" style="margin-top:16px;">Place Order</button>
+          </form>
+        </div>`;
+        container.innerHTML = html;
+
+        // Handle form submission
+        document.getElementById('checkout-form').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+          const data = {
+            name: formData.get('name'),
+            email: formData.get('email'),
+            phone: formData.get('phone'),
+            addressLine1: formData.get('addressLine1'),
+            addressLine2: formData.get('addressLine2'),
+            city: formData.get('city'),
+            state: formData.get('state'),
+            postalCode: formData.get('postalCode'),
+            paymentMethod: formData.get('paymentMethod')
+          };
+
+          // Validation
+          const errors = [];
+          if (!data.name || !data.name.trim()) errors.push('Name is required');
+          if (!data.email || !data.email.trim()) errors.push('Email is required');
+          if (!data.addressLine1 || !data.addressLine1.trim()) errors.push('Address line 1 is required');
+          if (!data.city || !data.city.trim()) errors.push('City is required');
+          if (!data.state || !data.state.trim()) errors.push('State is required');
+          if (!data.postalCode || !data.postalCode.trim()) errors.push('Postal code is required');
+          if (!data.phone || !data.phone.trim()) errors.push('Phone number is required');
+          if (!data.paymentMethod) errors.push('Payment method is required');
+
+          if (errors.length > 0) {
+            window.location.href = `./checkout.html?error=${encodeURIComponent(errors.join(', '))}`;
+            return;
+          }
+
+          // Payment Simulation
+          const paymentResult = formData.get('paymentResult');
+          if (paymentResult === 'failure') {
+            window.location.href = `./checkout.html?error=Payment Failed: Transaction Declined`;
+            return;
+          }
+
+          // Create order
+          const orderId = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
+          const currentTotal = window.StaticData.getCartTotal();
+          const currentSubtotal = window.StaticData.getCartSubtotal();
+          const coupon = window.StaticData.getCoupon();
+          const discountAmount = currentSubtotal - currentTotal;
+
+          const order = {
+            id: orderId,
+            revenue: currentTotal,
+            subtotal: currentSubtotal,
+            discountAmount: discountAmount,
+            couponCode: coupon ? coupon.code : null,
+            products: cart.items.map(item => {
+              const product = typeof PRODUCTS !== 'undefined' ? PRODUCTS.find(p => p.id === item.productId) : null;
+              return {
+                productId: item.productId,
+                sku: product ? product.sku : (item.sku || ''),
+                productName: item.productName,
+                productImageUrl: product ? product.productImageUrl : (item.productImageUrl || item.image),
+                price: item.price,
+                qty: item.qty,
+                image: item.image,
+                brand: item.brand,
+                color: item.color || '',
+                size: item.size || '',
+                variant: [item.size, item.color].filter(Boolean).join(' ')
+              };
+            }),
+            customerName: data.name.trim(),
+            email: data.email.trim(),
+            shippingAddress: {
+              addressLine1: data.addressLine1.trim(),
+              addressLine2: data.addressLine2?.trim() || '',
+              city: data.city.trim(),
+              state: data.state.trim(),
+              postalCode: data.postalCode.trim(),
+              phone: data.phone.trim()
+            },
+            paymentMethod: data.paymentMethod,
+            customerId: user ? user.id : null,
+            createdAt: new Date().toISOString()
+          };
+
+          window.StaticData.setOrder(orderId, order);
+          window.StaticData.clearCart();
+
+          window.location.href = `./thankyou.html?orderId=${orderId}`;
+        });
+      }
+
+      renderCheckout();
+
+      // Update user info
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      const userInfo = document.getElementById('user-info');
+      const accountLink = document.getElementById('account-link');
+      const logoutLink = document.getElementById('logout-link');
+
+      if (user) {
+        if (userInfo) userInfo.textContent = user.name;
+        if (accountLink) accountLink.style.display = 'none';
+        if (logoutLink) logoutLink.style.display = 'inline';
+      } else {
+        if (userInfo) userInfo.textContent = '';
+        if (accountLink) accountLink.style.display = 'inline';
+        if (logoutLink) logoutLink.style.display = 'none';
+      }
+    })();
+  </script>
+  <script src="./public/footer-injector.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cart | ShopKart</title>
+  <link rel="stylesheet" href="./public/styles.css" />
+  <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
+  <script src="./public/products.js"></script>
+  <script src="./public/static-data.js"></script>
+  <script src="./public/data-layer-helper.js"></script>
+  <script>
+    (function () {
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      const url = window.location;
+
+      // Calculate Cart State for Data Layer
+      const cart = window.StaticData.getCart();
+      const items = cart.items || [];
+      const total = window.StaticData.getCartTotal();
+
+      const productsArray = items.map(item => {
+        const product = (typeof PRODUCTS !== 'undefined') ? PRODUCTS.find(p => p.id === item.productId) : null;
+        const mrp = product ? (product.mrp || item.price) : item.price;
+        let discountAmount = 0;
+        let discountPercent = 0;
+        if (mrp > item.price) {
+          discountAmount = mrp - item.price;
+          discountPercent = Math.round((discountAmount / mrp) * 100);
+        }
+        const variantStr = [item.size, item.color].filter(Boolean).join(' ');
+
+        return {
+          productID: item.productId,
+          sku: product ? product.sku : (item.sku || ''),
+          productName: item.productName,
+          category: product ? product.category : '',
+          price: item.price,
+          productImageUrl: product ? product.productImageUrl : (item.productImageUrl || item.image),
+          originalPrice: mrp,
+          discountAmount: discountAmount,
+          discountPercent: discountPercent,
+          quantity: item.qty,
+          variant: variantStr,
+          size: item.size || '',
+          color: item.color || ''
+        };
+      });
+
+      window.adobeDataLayer.push({
+        event: "pageLoaded",
+        xdmPageLoad: {
+          custData: {
+            loginStatus: user ? "logged-in" : "guest",
+            platform: "desktop web",
+            language: "en"
+          },
+          web: {
+            webPageDetails: {
+              siteName: "shopkart",
+              pageName: "Cart",
+              pageType: "cart",
+              channel: "web"
+            }
+          },
+          pageUrl: {
+            dataLayerUrl: url.href,
+            deUrl: url.href,
+            urlWithQSP: url.href,
+            urlWithoutQSP: url.origin + url.pathname
+          }
+        },
+        xdmCommerce: {
+          cart: {
+            startdate: new Date().toISOString(),
+            status: "view",
+            totalQuantity: items.reduce((sum, item) => sum + item.qty, 0),
+            totalValueBeforeCoupon: items.reduce((sum, item) => sum + (item.price * item.qty), 0), // Base subtotal of selling prices
+            totalValue: total,
+            orderTotalAfterCoupon: total,
+            couponCode: window.StaticData.getCoupon() ? window.StaticData.getCoupon().code : "",
+            couponDiscountAmount: window.StaticData.getCoupon() ? (window.StaticData.getCartSubtotal() - window.StaticData.getCartTotal()) : 0
+          },
+          products: productsArray.map(p => ({
+            ...p,
+            productTotalValue: p.price * p.quantity,
+            discountedUnitPrice: p.price,
+            productTotalValueAfterDiscount: p.price * p.quantity // Coupon effects handled at order level usually
+          }))
+        }
+      });
+    })();
+  </script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js"
+    async></script>
+</head>
+
+<body data-page-type="cart">
+  <header>
+    <div class="topbar">
+      <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
+      <form class="search" method="GET" action="./plp.html">
+        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more"
+          aria-label="Search products" value="" />
+        <button type="submit">Search</button>
+      </form>
+      <div class="actions">
+        <span id="user-info"></span>
+        <a href="./account.html" aria-label="Account" id="account-link">Account</a>
+        <a href="./logout.html" aria-label="Logout" id="logout-link" style="display:none;">Logout</a>
+        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge"
+            data-role="cart-count">0</span></a>
+      </div>
+    </div>
+    <div class="categories">
+      <a href="./plp.html?cat=electronics">Electronics</a>
+      <a href="./plp.html?cat=mobiles">Mobiles</a>
+      <a href="./plp.html?cat=fashion">Fashion</a>
+      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=beauty">Beauty</a>
+      <a href="./plp.html?cat=all">All</a>
+    </div>
+  </header>
+  <main>
+    <h2>Your Cart</h2>
+    <div id="cart-content">
+      <p>Loading cart...</p>
+    </div>
+  </main>
+  <footer>
+    <p>ShopKart marketplace</p>
+  </footer>
+  <script src="./public/adl-utils.js"></script>
+  <script src="./public/client.js"></script>
+  <script>
+    (function () {
+      function renderCart() {
+        const cart = window.StaticData.getCart();
+        const subtotal = window.StaticData.getCartSubtotal();
+        const total = window.StaticData.getCartTotal();
+        const coupon = window.StaticData.getCoupon();
+
+        const container = document.getElementById('cart-content');
+
+        if (!cart.items || cart.items.length === 0) {
+          container.innerHTML = '<p>Your cart is empty. Browse the <a href="./plp.html">catalog</a>.</p>';
+          return;
+        }
+
+        let html = '<table><thead><tr><th></th><th>Product</th><th>Price</th><th>Qty</th><th>Subtotal</th><th></th></tr></thead><tbody>';
+        cart.items.forEach((item) => {
+          html += `
+            <tr>
+              <td style="width:80px;">
+                ${item.image ? `<img src="${item.image}" alt="${item.productName}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;" />` : ''}
+              </td>
+              <td>
+                  ${item.productName}
+                  ${item.size ? `<br/><span class="muted">Size: ${item.size}</span>` : ''}
+                  ${item.color ? `<br/><span class="muted">Color: ${item.color}</span>` : ''}
+                  <br/><span class="muted">${item.brand}</span>
+              </td>
+              <td>
+                  $${item.price}
+                  ${(function () {
+              const product = typeof PRODUCTS !== 'undefined' ? PRODUCTS.find(p => p.id === item.productId) : null;
+              if (product && product.mrp > item.price) {
+                const diff = product.mrp - item.price;
+                const pct = Math.round((diff / product.mrp) * 100);
+                return `<br/><span style="color:green;font-size:0.85em;">${pct}% off</span>`;
+              }
+              return '';
+            })()}
+              </td>
+              <td style="white-space:nowrap;">
+                  <button class="button small secondary qty-btn" data-action="decrease" data-id="${item.productId}" data-size="${item.size || ''}" data-color="${item.color || ''}" style="padding:2px 8px;">-</button>
+                  <span style="margin:0 8px;display:inline-block;width:20px;text-align:center;">${item.qty}</span>
+                  <button class="button small secondary qty-btn" data-action="increase" data-id="${item.productId}" data-size="${item.size || ''}" data-color="${item.color || ''}" style="padding:2px 8px;">+</button>
+              </td>
+              <td>$${(item.price * item.qty).toFixed(2)}</td>
+              <td>
+                <button class="button secondary" data-action="remove-item" data-id="${item.productId}" data-size="${item.size || ''}" data-color="${item.color || ''}">Remove</button>
+              </td>
+            </tr>
+          `;
+        });
+        html += '</tbody></table>';
+
+        // Coupon and Totals Section (Enhanced)
+        const availableCoupons = window.StaticData.getAvailableCoupons();
+
+        html += `<div class="cart-footer" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px;">
+          <!-- Coupons Panel -->
+          <div class="coupons-panel" style="background:#fff;border:1px solid #eee;border-radius:8px;padding:16px;">
+            <h4 style="margin-top:0;">Available Coupons</h4>
+            <div class="coupon-list" style="display:flex;flex-direction:column;gap:12px;max-height:300px;overflow-y:auto;">
+              ${availableCoupons.map(c => {
+          const isApplied = coupon && coupon.code === c.code;
+          return `
+                 <div class="coupon-card" style="border:1px solid ${isApplied ? 'green' : '#ddd'};padding:12px;border-radius:6px;background:${isApplied ? '#eaffea' : '#fff'};">
+                    <div style="display:flex;justify-content:space-between;font-weight:bold;">
+                        <span>${c.code}</span>
+                        ${isApplied ? '<span style="color:green">APPLIED</span>' : ''}
+                    </div>
+                    <div style="font-size:0.9em;color:#666;margin:4px 0;">${c.description}</div>
+                    ${!isApplied ?
+              `<button class="button small secondary apply-coupon-btn" data-code="${c.code}" style="width:100%;margin-top:8px;">Apply</button>` :
+              `<button class="button small remove-coupon-btn" style="width:100%;margin-top:8px;border-color:#c00;color:#c00;">Remove</button>`
+            }
+                 </div>
+                 `;
+        }).join('')}
+            </div>
+            <p id="coupon-message" style="color:#c00;font-size:0.9em;margin-top:12px;text-align:center;min-height:20px;"></p>
+          </div>
+          
+          <!-- Totals Panel -->
+          <div class="summary" style="background:#f9f9f9;padding:20px;border-radius:8px;text-align:right;">
+            <h3 style="margin-top:0;">Order Summary</h3>
+            <p><strong>Subtotal:</strong> $${subtotal.toFixed(2)}</p>
+            ${coupon ? `<p style="color:green;"><strong>Discount (${coupon.code}):</strong> -$${(subtotal - total).toFixed(2)}</p>` : ''}
+            <p style="font-size:1.4em;margin-top:12px;border-top:1px solid #ddd;padding-top:12px;"><strong>Total:</strong> $${total.toFixed(2)}</p>
+            <a class="button primary full-width" id="checkout-button" href="./checkout.html" style="display:block;margin-top:16px;text-align:center;">Proceed to checkout</a>
+          </div>
+        </div>`;
+
+        container.innerHTML = html;
+
+        // Attach Coupon Listeners
+        document.querySelectorAll('.apply-coupon-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const code = e.target.getAttribute('data-code');
+            const result = window.StaticData.applyCoupon(code);
+            if (result.success) {
+              renderCart();
+            } else {
+              document.getElementById('coupon-message').textContent = result.message;
+            }
+          });
+        });
+
+        document.querySelectorAll('.remove-coupon-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            window.StaticData.removeCoupon();
+            renderCart();
+          });
+        });
+
+
+        // Attach checkout button event listener
+        const checkoutButton = document.getElementById('checkout-button');
+        if (checkoutButton) {
+          checkoutButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            const dl = window.adobeDataLayer || [];
+            const currentCart = window.StaticData.getCart();
+            const currentTotal = window.StaticData.getCartTotal();
+            const totalQuantity = currentCart.items.reduce((sum, item) => sum + item.qty, 0);
+
+            const productsArray = currentCart.items.map(item => {
+              const product = typeof PRODUCTS !== 'undefined' ? PRODUCTS.find(p => p.id === item.productId) : null;
+              const mrp = product ? (product.mrp || item.price) : item.price;
+              let discountAmount = 0;
+              let discountPercent = 0;
+              if (mrp > item.price) {
+                discountAmount = mrp - item.price;
+                discountPercent = Math.round((discountAmount / mrp) * 100);
+              }
+              // Construct variant string
+              const variantStr = [item.size, item.color].filter(Boolean).join(' ');
+
+              return {
+                productID: item.productId,
+                sku: product ? product.sku : (item.sku || ''),
+                productName: item.productName,
+                category: product ? product.category : '',
+                price: item.price,
+                productImageUrl: product ? product.productImageUrl : (item.productImageUrl || item.image),
+                originalPrice: mrp,
+                discountAmount: discountAmount,
+                discountPercent: discountPercent,
+                quantity: item.qty,
+                variant: variantStr,
+                size: item.size || '',
+                color: item.color || ''
+              };
+            });
+
+            dl.push({
+              event: "beginCheckout",
+              xdmCommerce: {
+                cart: {
+                  totalQuantity: totalQuantity,
+                  totalValue: currentTotal
+                },
+                products: productsArray
+              }
+            });
+            setTimeout(() => {
+              window.location.href = './checkout.html';
+            }, 100);
+          });
+        }
+      }
+
+      // Main Execution
+      renderCart();
+
+      // Event Delegation (Attached ONCE to cart-content)
+      const cartContent = document.getElementById('cart-content');
+      if (cartContent) {
+        // Remove old listener if needed (though we are running clean here usually)
+        // We use a named function to allow removal if we wanted, but anon is fine for simple page life
+        cartContent.addEventListener('click', (e) => {
+          // Handle Remove
+          const removeBtn = e.target.closest('[data-action="remove-item"]');
+          if (removeBtn) {
+            const productId = removeBtn.dataset.id;
+            const size = removeBtn.dataset.size;
+            const color = removeBtn.dataset.color;
+
+            // Find item for tracking
+            const cart = window.StaticData.getCart();
+            const itemToRemove = cart.items.find(item =>
+              item.productId === productId &&
+              (item.size || '') === size &&
+              (item.color || '') === color
+            );
+
+            window.StaticData.removeFromCart(productId, size, color);
+            renderCart();
+            // Update badge
+            const newCount = window.StaticData.getCartCount();
+            const badge = document.querySelector('[data-role="cart-count"]');
+            if (badge) badge.textContent = newCount;
+
+            if (itemToRemove) {
+              const dl = window.adobeDataLayer || [];
+              const productDef = typeof PRODUCTS !== 'undefined' ? PRODUCTS.find(p => p.id === productId) : null;
+              const variantStr = [size, color].filter(Boolean).join(' ');
+
+              dl.push({
+                event: "removeFromCart",
+                xdmCommerce: {
+                  product: {
+                    productID: itemToRemove.productId,
+                    sku: productDef ? productDef.sku : (itemToRemove.sku || ''),
+                    productName: itemToRemove.productName,
+                    productImageUrl: productDef ? productDef.productImageUrl : itemToRemove.image,
+                    quantity: itemToRemove.qty,
+                    variant: variantStr,
+                    size: size,
+                    color: color
+                  }
+                }
+              });
+            }
+            return;
+          }
+
+          // Handle Qty
+          const qtyBtn = e.target.closest('.qty-btn');
+          if (qtyBtn) {
+            const action = qtyBtn.dataset.action;
+            const productId = qtyBtn.dataset.id;
+            const size = qtyBtn.dataset.size;
+            const color = qtyBtn.dataset.color;
+
+            const cart = window.StaticData.getCart();
+            const item = cart.items.find(item =>
+              item.productId === productId &&
+              (item.size || '') === size &&
+              (item.color || '') === color
+            );
+
+            if (item) {
+              let newQty = item.qty;
+              if (action === 'increase') newQty++;
+              if (action === 'decrease') newQty = Math.max(1, newQty - 1);
+
+              if (newQty !== item.qty) {
+                window.StaticData.updateItemQty(productId, size, color, newQty);
+                renderCart();
+                // Update badge
+                const newCount = window.StaticData.getCartCount();
+                const badge = document.querySelector('[data-role="cart-count"]');
+                if (badge) badge.textContent = newCount;
+              }
+            }
+          }
+        });
+      }
+
+      // Update user info
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      const userInfo = document.getElementById('user-info');
+      const accountLink = document.getElementById('account-link');
+      const logoutLink = document.getElementById('logout-link');
+
+      if (user) {
+        if (userInfo) userInfo.textContent = user.name;
+        if (accountLink) accountLink.style.display = 'none';
+        if (logoutLink) logoutLink.style.display = 'inline';
+      } else {
+        if (userInfo) userInfo.textContent = '';
+        if (accountLink) accountLink.style.display = 'inline';
+        if (logoutLink) logoutLink.style.display = 'none';
+      }
+    })();
+  </script>
+  <script src="./public/footer-injector.js"></script>
+</body>
+
+</html>

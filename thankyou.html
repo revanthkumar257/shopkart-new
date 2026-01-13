@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Thank You | ShopKart</title>
+  <link rel="stylesheet" href="./public/styles.css" />
+  <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
+  <script src="./public/products.js"></script>
+  <script src="./public/static-data.js"></script>
+  <script src="./public/data-layer-helper.js"></script>
+  <script>
+    (function () {
+      const urlParams = new URLSearchParams(window.location.search);
+      const orderId = urlParams.get('orderId');
+      const order = orderId ? window.StaticData.getOrder(orderId) : null;
+
+      if (!order) {
+        window.location.href = './index.html';
+        return;
+      }
+
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      const url = window.location;
+
+      // Prevent duplicate purchase events on reload
+      if (!order.purchaseEventPushed) {
+        // Page loaded event first
+        window.adobeDataLayer.push({
+          event: "pageLoaded",
+          xdmPageLoad: {
+            custData: {
+              loginStatus: user ? "logged-in" : "guest",
+              platform: "desktop web",
+              language: "en"
+            },
+            web: {
+              webPageDetails: {
+                siteName: "shopkart",
+                pageName: "Order Confirmation",
+                pageType: "confirmation",
+                channel: "web"
+              }
+            },
+            pageUrl: {
+              dataLayerUrl: url.href,
+              deUrl: url.href,
+              urlWithQSP: url.href,
+              urlWithoutQSP: url.origin + url.pathname
+            }
+          }
+        });
+
+        // Purchase event
+        const productsArray = order.products.map(p => {
+          // Find product in PRODUCTS array to get category and details if needed
+          let category = "";
+          let discountAmount = 0;
+          let discountPercent = 0;
+          let originalPrice = p.price;
+
+          let product = null;
+          if (typeof PRODUCTS !== 'undefined') {
+            product = PRODUCTS.find(prod => prod.id === p.productId);
+            if (product) {
+              category = product.category;
+              originalPrice = product.mrp || product.price;
+              // Product-level discount
+              if (originalPrice > p.price) {
+                discountAmount = originalPrice - p.price;
+                discountPercent = Math.round((discountAmount / originalPrice) * 100);
+              }
+            }
+          }
+
+          return {
+            productID: p.productId,
+            sku: product ? product.sku : (p.sku || ''),
+            productName: p.productName,
+            category: category,
+            price: p.price,
+            productImageUrl: product ? product.productImageUrl : (p.productImageUrl || p.image || ''),
+            originalPrice: originalPrice,
+            discountAmount: discountAmount,
+            discountPercent: discountPercent,
+            quantity: p.qty,
+            variant: p.color || p.variant || '', // Persisted color
+            size: p.size || '',
+            color: p.color || '',
+            productTotalValue: p.price * p.qty,
+            discountedUnitPrice: p.price,
+            productTotalValueAfterDiscount: p.price * p.qty // Final value paid for this line item
+          };
+        });
+
+        window.adobeDataLayer.push({
+          event: "purchase",
+          xdmCommerce: {
+            order: {
+              orderID: order.id,
+              totalValue: order.revenue,
+              currency: "USD",
+              couponCode: order.couponCode || '',
+              couponDiscountAmount: order.discountAmount || 0,
+              orderTotalBeforeCoupon: order.subtotal || order.revenue,
+              orderTotalAfterCoupon: order.revenue,
+              totalQuantity: order.products.reduce((sum, item) => sum + item.qty, 0), // Adding totalQuantity to Order object as well for consistency
+              totalDiscountAmount: (order.subtotal - order.revenue) + productsArray.reduce((acc, p) => acc + (p.discountAmount * p.quantity), 0)
+              // Wait, previous calc was totalDiscountAmount = (MRP_Sum - Subtotal) + (Subtotal - Total).
+              // Let's replicate that logic accurately.
+              // We need MRP sum again.
+            },
+            products: productsArray
+          }
+        });
+
+        // Re-calculate Total Discount correctly before push
+        let totalSellingPriceSum = 0;
+        let totalMrpSum = 0;
+
+        productsArray.forEach(p => {
+          totalMrpSum += (p.originalPrice * p.quantity);
+          totalSellingPriceSum += (p.price * p.quantity);
+        });
+
+        // Subtotal = Sum(SellingPrice * Qty)
+        // Total = Subtotal - CouponDiscount
+
+        const subtotal = order.subtotal || order.revenue; // matches totalSellingPriceSum usually
+        const couponDiscount = order.discountAmount || 0;
+
+        // Total Discount = (MRP Sum - Selling Price Sum) + Coupon Discount
+        const totalDiscount = (totalMrpSum - totalSellingPriceSum) + couponDiscount;
+
+        window.adobeDataLayer.pop();
+        window.adobeDataLayer.push({
+          event: "purchase",
+          xdmCommerce: {
+            order: {
+              orderID: order.id,
+              totalValue: order.revenue,
+              currency: "USD",
+              couponCode: order.couponCode || '',
+              couponDiscountAmount: order.discountAmount || 0,
+              orderTotalBeforeCoupon: totalSellingPriceSum,
+              orderTotalAfterCoupon: order.revenue,
+              totalQuantity: order.products.reduce((sum, item) => sum + item.qty, 0),
+              totalDiscountAmount: totalDiscount
+            },
+            products: productsArray
+          }
+        });
+        order.purchaseEventPushed = true;
+        window.StaticData.setOrder(orderId, order);
+
+        // Clear coupon after successful order
+        window.StaticData.removeCoupon();
+      } else {
+        // Page load push for reload (already handled)
+        // Ensure consistency with new structure if we were to re-push purchase (we don't), but pageLoaded is fine.
+        window.adobeDataLayer.push({
+          event: "pageLoaded",
+          xdmPageLoad: {
+            custData: {
+              loginStatus: user ? "logged-in" : "guest",
+              platform: "desktop web",
+              language: "en"
+            },
+            web: {
+              webPageDetails: {
+                siteName: "shopkart",
+                pageName: "Order Confirmation",
+                pageType: "confirmation",
+                channel: "web"
+              }
+            },
+            pageUrl: {
+              dataLayerUrl: url.href,
+              deUrl: url.href,
+              urlWithQSP: url.href,
+              urlWithoutQSP: url.origin + url.pathname
+            }
+          }
+        });
+      }
+
+      window.currentOrder = order;
+    })();
+  </script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js"
+    async></script>
+</head>
+
+<body data-page-type="thankyou">
+  <header>
+    <div class="topbar">
+      <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
+      <form class="search" method="GET" action="./plp.html">
+        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more"
+          aria-label="Search products" value="" />
+        <button type="submit">Search</button>
+      </form>
+      <div class="actions">
+        <span id="user-info"></span>
+        <a href="./account.html" aria-label="Account" id="account-link">Account</a>
+        <a href="./logout.html" aria-label="Logout" id="logout-link" style="display:none;">Logout</a>
+        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge"
+            data-role="cart-count">0</span></a>
+      </div>
+    </div>
+    <div class="categories">
+      <a href="./plp.html?cat=electronics">Electronics</a>
+      <a href="./plp.html?cat=mobiles">Mobiles</a>
+      <a href="./plp.html?cat=fashion">Fashion</a>
+      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=beauty">Beauty</a>
+      <a href="./plp.html?cat=all">All</a>
+    </div>
+  </header>
+  <main>
+    <div id="thankyou-content">
+      <p>Loading order details...</p>
+    </div>
+  </main>
+  <footer>
+    <p>ShopKart marketplace</p>
+  </footer>
+  <script src="./public/adl-utils.js"></script>
+  <script src="./public/client.js"></script>
+  <script>
+    (function () {
+      if (typeof window.currentOrder === 'undefined') {
+        document.getElementById('thankyou-content').innerHTML = '<p>No order found. Please complete checkout.</p>';
+        return;
+      }
+
+      const order = window.currentOrder;
+      let html = `
+        <h2>Thank you for your order!</h2>
+        <p>Your order has been placed successfully. We'll send you a confirmation email shortly.</p>
+        <p><a href="./index.html">Return to home</a> or <a href="./plp.html">continue shopping</a></p>
+        <div class="summary">
+          <h3>Order Summary</h3>
+          <p><strong>Order ID:</strong> ${order.id}</p>
+          <p><strong>Customer:</strong> ${order.customerName}</p>
+          <p><strong>Email:</strong> ${order.email}</p>
+          <p><strong>Subtotal:</strong> $${(order.subtotal || order.revenue).toFixed(2)}</p>
+          ${order.discountAmount ? `<p style="color:green;"><strong>Discount (${order.couponCode}):</strong> -$${order.discountAmount.toFixed(2)}</p>` : ''}
+          <p><strong>Total:</strong> $${order.revenue.toFixed(2)}</p>
+          
+          <h4 style="margin-top:20px;">Items Ordered</h4>
+          <ul>
+      `;
+
+      order.products.forEach((p) => {
+        const variantDisplay = [p.size ? `Size: ${p.size}` : '', p.color ? `Color: ${p.color}` : ''].filter(Boolean).join(', ');
+        html += `<li>
+          ${p.productName} 
+          ${variantDisplay ? `<span style="color:#666;font-size:0.9em;">(${variantDisplay})</span>` : ''} 
+          — Qty ${p.qty} — $${(p.price * p.qty).toFixed(2)}
+        </li>`;
+      });
+
+      html += '</ul>';
+
+      if (order.shippingAddress) {
+        html += `
+          <h4 style="margin-top:20px;">Shipping Address</h4>
+          <p>
+            ${order.shippingAddress.addressLine1}<br/>
+            ${order.shippingAddress.addressLine2 ? order.shippingAddress.addressLine2 + '<br/>' : ''}
+            ${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.postalCode}<br/>
+            Phone: ${order.shippingAddress.phone}
+          </p>
+        `;
+      }
+
+      if (order.paymentMethod) {
+        html += `
+          <h4 style="margin-top:20px;">Payment Method</h4>
+          <p>${order.paymentMethod}</p>
+        `;
+      }
+
+      html += '</div>';
+      html += '<div style="display:flex;gap:12px;margin-top:16px;">';
+      html += '<a class="button primary" href="./plp.html">Continue shopping</a>';
+      html += '<button id="cancel-order-btn" class="button secondary" style="border-color:#c00;color:#c00;">Cancel Order</button>';
+      html += '</div>';
+
+      document.getElementById('thankyou-content').innerHTML = html;
+
+      // Cancel Order Handler
+      document.getElementById('cancel-order-btn').addEventListener('click', () => {
+        if (confirm('Are you sure you want to cancel this order?')) {
+          const currentOrder = window.currentOrder;
+
+          // Generate Products Array for Event
+          const productsArray = currentOrder.products.map(p => {
+            let discountAmount = 0;
+            let discountPercent = 0;
+            let originalPrice = p.price;
+            let category = "";
+            let product = null;
+
+            if (typeof PRODUCTS !== 'undefined') {
+              product = PRODUCTS.find(prod => prod.id === p.productId);
+              if (product) {
+                category = product.category;
+                originalPrice = product.mrp || product.price;
+                if (originalPrice > p.price) {
+                  discountAmount = originalPrice - p.price;
+                  discountPercent = Math.round((discountAmount / originalPrice) * 100);
+                }
+              }
+            }
+
+            return {
+              productID: p.productId,
+              sku: product ? product.sku : (p.sku || ''),
+              productName: p.productName,
+              category: category,
+              price: p.price,
+              productImageUrl: product ? product.productImageUrl : (p.productImageUrl || p.image || ''),
+              originalPrice: originalPrice,
+              discountAmount: discountAmount,
+              discountPercent: discountPercent,
+              quantity: p.qty,
+              variant: p.variant || [p.size, p.color].filter(Boolean).join(' '),
+              size: p.size || '',
+              color: p.color || ''
+            };
+          });
+
+          // Fire orderCancelled event
+          window.adobeDataLayer.push({
+            event: "orderCancelled",
+            xdmCommerce: {
+              order: {
+                orderID: currentOrder.id,
+                totalValue: currentOrder.revenue,
+                currency: "USD",
+                status: "cancelled"
+              },
+              products: productsArray
+            }
+          });
+          console.log("ACDL: orderCancelled tracked");
+
+          // Update UI
+          document.getElementById('thankyou-content').innerHTML = `
+                <div class="notice" style="background:#fee;border-color:#fcc;color:#c00;padding:20px;text-align:center;">
+                    <h2>Order Cancelled</h2>
+                    <p>Your order ${currentOrder.id} has been cancelled.</p>
+                    <a href="./plp.html" class="button primary" style="margin-top:16px;display:inline-block;">Return to Shop</a>
+                </div>
+            `;
+        }
+      });
+
+      // Update user info
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      const userInfo = document.getElementById('user-info');
+      const accountLink = document.getElementById('account-link');
+      const logoutLink = document.getElementById('logout-link');
+
+      if (user) {
+        if (userInfo) userInfo.textContent = user.name;
+        if (accountLink) accountLink.style.display = 'none';
+        if (logoutLink) logoutLink.style.display = 'inline';
+      } else {
+        if (userInfo) userInfo.textContent = '';
+        if (accountLink) accountLink.style.display = 'inline';
+        if (logoutLink) logoutLink.style.display = 'none';
+      }
+    })();
+  </script>
+  <script src="./public/footer-injector.js"></script>
+</body>
+
+</html>

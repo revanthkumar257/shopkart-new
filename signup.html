@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign Up | ShopKart</title>
+  <link rel="stylesheet" href="./public/styles.css" />
+  <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
+  <script src="./public/products.js"></script>
+  <script src="./public/static-data.js"></script>
+  <script src="./public/data-layer-helper.js"></script>
+  <script>
+    (function() {
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      if (user) {
+        window.location.href = '/';
+        return;
+      }
+      const url = window.location;
+      window.adobeDataLayer.push({
+        event: "pageLoaded",
+        xdmPageLoad: {
+          custData: {
+            loginStatus: user ? "logged-in" : "guest",
+            platform: "desktop web",
+            language: "en"
+          },
+          web: {
+            webPageDetails: {
+              siteName: "shopkart",
+              pageName: "Sign Up",
+              pageType: "home",
+              channel: "web"
+            }
+          },
+          pageUrl: {
+            dataLayerUrl: url.href,
+            deUrl: url.href,
+            urlWithQSP: url.href,
+            urlWithoutQSP: url.origin + url.pathname
+          }
+        }
+      });
+    })();
+  </script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js" async></script>
+</head>
+<body data-page-type="signup">
+  <header>
+    <div class="topbar">
+      <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
+      <form class="search" method="GET" action="./plp.html">
+        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more" aria-label="Search products" value="" />
+        <button type="submit">Search</button>
+      </form>
+      <div class="actions">
+        <span id="user-info"></span>
+        <a href="./account.html" aria-label="Account" id="account-link">Account</a>
+        <a href="./logout.html" aria-label="Logout" id="logout-link" style="display:none;">Logout</a>
+        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge" data-role="cart-count">0</span></a>
+      </div>
+    </div>
+    <div class="categories">
+      <a href="./plp.html?cat=electronics">Electronics</a>
+      <a href="./plp.html?cat=mobiles">Mobiles</a>
+      <a href="./plp.html?cat=fashion">Fashion</a>
+      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=beauty">Beauty</a>
+      <a href="./plp.html?cat=all">All</a>
+    </div>
+  </header>
+  <main>
+  <h2>Sign Up</h2>
+  <div id="signup-content">
+    <div class="summary">
+      <form id="signup-form">
+        <div class="form-group">
+          <label for="name">Name</label>
+          <input id="name" name="name" type="text" required placeholder="John Doe" />
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" required placeholder="john@example.com" />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" required placeholder="Enter password" />
+        </div>
+        <button class="button primary" type="submit">Sign Up</button>
+      </form>
+      <p style="margin-top:16px;"><a href="./login.html">Already have an account? Log in</a></p>
+    </div>
+  </div>
+  </main>
+  <footer>
+    <p>ShopKart marketplace</p>
+  </footer>
+  <script src="./public/adl-utils.js"></script>
+  <script src="./public/client.js"></script>
+  <script>
+    (function() {
+      let userIdCounter = parseInt(localStorage.getItem('shopkart_userIdCounter') || '1', 10);
+      
+      const error = new URLSearchParams(window.location.search).get('error');
+      if (error) {
+        const container = document.getElementById('signup-content');
+        container.innerHTML = `
+          <div class="notice" style="background:#fee;border-color:#fcc;color:#c00;">${error}</div>
+          <div class="summary">
+            <form id="signup-form">
+              <div class="form-group">
+                <label for="name">Name</label>
+                <input id="name" name="name" type="text" required placeholder="John Doe" />
+              </div>
+              <div class="form-group">
+                <label for="email">Email</label>
+                <input id="email" name="email" type="email" required placeholder="john@example.com" />
+              </div>
+              <div class="form-group">
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" required placeholder="Enter password" />
+              </div>
+              <button class="button primary" type="submit">Sign Up</button>
+            </form>
+            <p style="margin-top:16px;"><a href="./login.html">Already have an account? Log in</a></p>
+          </div>
+        `;
+      }
+      
+      const signupForm = document.getElementById('signup-form');
+      if (signupForm) {
+        signupForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const name = formData.get('name');
+        const email = formData.get('email');
+        const password = formData.get('password');
+        
+        if (!name || !email || !password) {
+          window.location.href = './signup.html?error=' + encodeURIComponent('All fields are required');
+          return;
+        }
+        
+        const users = window.StaticData.getUsers();
+        if (users[email.toLowerCase()]) {
+          window.location.href = './signup.html?error=' + encodeURIComponent('Email already registered');
+          return;
+        }
+        
+        const user = {
+          id: userIdCounter++,
+          name: name.trim(),
+          email: email.toLowerCase().trim(),
+          password: password
+        };
+        users[user.email] = user;
+        window.StaticData.setUsers(users);
+        localStorage.setItem('shopkart_userIdCounter', userIdCounter.toString());
+        
+        window.StaticData.setUser({ id: user.id, name: user.name, email: user.email });
+        window.location.href = './index.html';
+        });
+      }
+    })();
+  </script>
+<script src="./public/footer-injector.js"></script></body>
+</html>
+
