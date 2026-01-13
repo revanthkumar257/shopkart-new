@@ -343,7 +343,7 @@
               dl.push({
                 event: "removeFromCart",
                 xdmCommerce: {
-                  product: {
+                  products: [{
                     productID: itemToRemove.productId,
                     sku: productDef ? productDef.sku : (itemToRemove.sku || ''),
                     productName: itemToRemove.productName,
@@ -352,7 +352,7 @@
                     variant: variantStr,
                     size: size,
                     color: color
-                  }
+                  }]
                 }
               });
             }

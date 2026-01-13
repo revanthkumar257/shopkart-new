@@ -79,7 +79,7 @@
           productViews: {
             value: 1
           },
-          product: {
+          products: [{
             productID: product.id,
             sku: product.sku,
             productName: product.name,
@@ -90,7 +90,7 @@
             discountAmount: discountAmount,
             discountPercent: discountPercent,
             // Variant info not available on load, user selects it later
-          }
+          }]
         }
       });
 
@@ -239,7 +239,7 @@
         window.adobeDataLayer.push({
           event: "productOptionSelected",
           xdmCommerce: {
-            product: {
+            products: [{
               productID: product.id,
               sku: product.sku,
               productName: product.name,
@@ -253,7 +253,7 @@
               color: color,
               size: size,
               variant: variantStr
-            }
+            }]
           }
         });
       };

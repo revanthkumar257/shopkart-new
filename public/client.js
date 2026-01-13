@@ -260,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       },
       xdmCommerce: {
-        product: {
+        products: [{
           productID: productId,
           sku: product.sku,
           productName: productName,
@@ -277,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
           productTotalValue: price * qty,
           discountedUnitPrice: price,
           productTotalValueAfterDiscount: price * qty
-        }
+        }]
       }
     });
 
