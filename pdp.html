@@ -9,7 +9,7 @@
   <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
   <script src="./public/products.js"></script>
   <script src="./public/static-data.js"></script>
-  <script src="./public/data-layer-helper.js"></script>
+  <script src="./public/adl-utils.js"></script>
   <script>
     (function () {
       // Get product ID from URL - try query param first, then path
@@ -42,7 +42,6 @@
       const url = window.location;
 
       // 1. Page Load
-      // Calculate Price Details
       const mrp = product.mrp || product.price;
       let discountAmount = 0;
       let discountPercent = 0;
@@ -51,7 +50,7 @@
         discountPercent = Math.round((discountAmount / mrp) * 100);
       }
 
-      // Combined Page Load + Product View
+      // Aurora Reference PDP: productDetails goes in xdmPageLoad.web.productDetails
       window.adobeDataLayer.push({
         event: "pageLoaded",
         xdmPageLoad: {
@@ -63,10 +62,26 @@
           web: {
             webPageDetails: {
               siteName: "shopkart",
-              pageName: `PDP - ${product.name}`,
+              pageName: `product:${product.id}`, // Reference format: product:[id]
               pageType: "pdp",
-              channel: "web"
-            }
+              channel: "web|pdp",
+              productCategory: product.category
+            },
+            productDetails: [{
+              productID: product.id,
+              sku: product.sku,
+              productName: product.name,
+              brand: product.brand || 'shopkart',
+              category: product.category,
+              price: product.price,
+              originalPrice: mrp,
+              discountAmount: discountAmount,
+              discountPercentage: discountPercent,
+              currencyCode: "USD",
+              quantity: 1, // Default view qty
+              productImageUrl: product.image,
+              productUrl: window.location.href
+            }]
           },
           pageUrl: {
             dataLayerUrl: url.href,
@@ -74,28 +89,40 @@
             urlWithQSP: url.href,
             urlWithoutQSP: url.origin + url.pathname
           }
-        },
-        xdmCommerce: {
-          productViews: {
-            value: 1
-          },
-          products: [{
-            productID: product.id,
-            sku: product.sku,
-            productName: product.name,
-            category: product.category,
-            price: product.price,
-            productImageUrl: product.productImageUrl,
-            originalPrice: mrp,
-            discountAmount: discountAmount,
-            discountPercent: discountPercent,
-            // Variant info not available on load, user selects it later
-          }]
         }
       });
+      console.log("ACDL: pageLoaded tracked (PDP)");
 
       // Update title
       document.title = `${product.name} | ShopKart`;
+
+      // 3. Listen for PDP Dynamic Updates (Color, Size, Quantity)
+      // We will attach this once the DOM is ready or us a delegate if possible, 
+      // but since we are in the head, we can define a global helper or wait for DOM.
+      // Better to attach in the body script where we render the form.
+      window.trackPDPUpdate = function (color, size, qty) {
+        window.adobeDataLayer.push({
+          event: "pdpAttributeUpdate",
+          web: {
+            productDetails: [{
+              productID: product.id,
+              sku: product.sku,
+              productName: product.name,
+              brand: product.brand || 'shopkart',
+              category: product.category,
+              price: product.price, // Unit price
+              originalPrice: mrp,
+              discountAmount: discountAmount,
+              discountPercentage: discountPercent,
+              currencyCode: "USD",
+              quantity: Number(qty) || 1,
+              color: color || '',
+              size: size || ''
+            }]
+          }
+        });
+        console.log(`ACDL: pdpAttributeUpdate tracked (Color:${color}, Size:${size}, Qty:${qty})`);
+      };
     })();
   </script>
   <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js"
@@ -123,7 +150,7 @@
       <a href="./plp.html?cat=electronics">Electronics</a>
       <a href="./plp.html?cat=mobiles">Mobiles</a>
       <a href="./plp.html?cat=fashion">Fashion</a>
-      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=home%20appliances">Home Appliances</a>
       <a href="./plp.html?cat=beauty">Beauty</a>
       <a href="./plp.html?cat=all">All</a>
     </div>
@@ -153,7 +180,7 @@
       const bulletsHtml = product.bullets.map(b => `<li>${b}</li>`).join('');
       const specsHtml = product.specs.map(spec => `<tr><th>${spec[0]}</th><td>${spec[1]}</td></tr>`).join('');
 
-      const validColorCategories = ['Mobiles', 'Fashion', 'Home', 'Beauty', 'Electronics'];
+      const validColorCategories = ['Mobiles', 'Fashion', 'Home Appliances', 'Beauty', 'Electronics'];
       const showColor = product.availableColors && product.availableColors.length > 0;
       const showSize = product.availableSizes && product.availableSizes.length > 0;
 
@@ -224,44 +251,6 @@
           </table>
         </section>
       `;
-
-      // Update Data Layer on User Interaction
-      const form = document.getElementById('add-to-cart-form');
-      const inputs = form.querySelectorAll('select, input');
-
-      const pushProductState = () => {
-        const formData = new FormData(form);
-        const color = formData.get('color') || '';
-        const size = formData.get('size') || '';
-        const qty = Number(formData.get('qty')) || 1;
-        const variantStr = [size, color].filter(Boolean).join(' '); // Re-derive variant
-
-        window.adobeDataLayer.push({
-          event: "productOptionSelected",
-          xdmCommerce: {
-            products: [{
-              productID: product.id,
-              sku: product.sku,
-              productName: product.name,
-              category: product.category,
-              price: product.price,
-              productImageUrl: product.productImageUrl,
-              originalPrice: product.mrp || product.price,
-              discountAmount: (product.mrp || product.price) - product.price,
-              discountPercent: Math.round((((product.mrp || product.price) - product.price) / (product.mrp || product.price)) * 100),
-              quantity: qty,
-              color: color,
-              size: size,
-              variant: variantStr
-            }]
-          }
-        });
-      };
-
-      inputs.forEach(input => {
-        input.addEventListener('change', pushProductState);
-      });
-
       // Initialize cart count on page load
       if (window.StaticData) {
         const cart = window.StaticData.getCart();
@@ -273,6 +262,23 @@
         if (cartBadge) {
           cartBadge.textContent = cartCount;
         }
+      }
+
+      // Attach PDP Attribute Update Listeners
+      const form = document.getElementById('add-to-cart-form');
+      if (form) {
+        const inputs = form.querySelectorAll('input, select');
+        inputs.forEach(input => {
+          input.addEventListener('change', () => {
+            const color = form.querySelector('[name="color"]')?.value || '';
+            const size = form.querySelector('[name="size"]')?.value || '';
+            const qty = form.querySelector('[name="qty"]')?.value || 1;
+
+            if (window.trackPDPUpdate) {
+              window.trackPDPUpdate(color, size, qty);
+            }
+          });
+        });
       }
 
       // Update user info

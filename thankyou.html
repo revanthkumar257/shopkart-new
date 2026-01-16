@@ -9,7 +9,7 @@
   <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
   <script src="./public/products.js"></script>
   <script src="./public/static-data.js"></script>
-  <script src="./public/data-layer-helper.js"></script>
+  <script src="./public/adl-utils.js"></script>
   <script>
     (function () {
       const urlParams = new URLSearchParams(window.location.search);
@@ -24,168 +24,32 @@
       const user = window.StaticData ? window.StaticData.getUser() : null;
       const url = window.location;
 
-      // Prevent duplicate purchase events on reload
-      if (!order.purchaseEventPushed) {
-        // Page loaded event first
-        window.adobeDataLayer.push({
-          event: "pageLoaded",
-          xdmPageLoad: {
-            custData: {
-              loginStatus: user ? "logged-in" : "guest",
-              platform: "desktop web",
-              language: "en"
-            },
-            web: {
-              webPageDetails: {
-                siteName: "shopkart",
-                pageName: "Order Confirmation",
-                pageType: "confirmation",
-                channel: "web"
-              }
-            },
-            pageUrl: {
-              dataLayerUrl: url.href,
-              deUrl: url.href,
-              urlWithQSP: url.href,
-              urlWithoutQSP: url.origin + url.pathname
+      // 1. Page Load - Metadata Only
+      window.adobeDataLayer.push({
+        event: "pageLoaded",
+        xdmPageLoad: {
+          custData: {
+            loginStatus: user ? "logged-in" : "guest",
+            platform: "desktop web",
+            language: "en"
+          },
+          web: {
+            webPageDetails: {
+              siteName: "shopkart",
+              pageName: "Order Confirmation",
+              pageType: "confirmation",
+              channel: "web|confirmation"
             }
+          },
+          pageUrl: {
+            dataLayerUrl: url.href,
+            deUrl: url.href,
+            urlWithQSP: url.href,
+            urlWithoutQSP: url.origin + url.pathname
           }
-        });
-
-        // Purchase event
-        const productsArray = order.products.map(p => {
-          // Find product in PRODUCTS array to get category and details if needed
-          let category = "";
-          let discountAmount = 0;
-          let discountPercent = 0;
-          let originalPrice = p.price;
-
-          let product = null;
-          if (typeof PRODUCTS !== 'undefined') {
-            product = PRODUCTS.find(prod => prod.id === p.productId);
-            if (product) {
-              category = product.category;
-              originalPrice = product.mrp || product.price;
-              // Product-level discount
-              if (originalPrice > p.price) {
-                discountAmount = originalPrice - p.price;
-                discountPercent = Math.round((discountAmount / originalPrice) * 100);
-              }
-            }
-          }
-
-          return {
-            productID: p.productId,
-            sku: product ? product.sku : (p.sku || ''),
-            productName: p.productName,
-            category: category,
-            price: p.price,
-            productImageUrl: product ? product.productImageUrl : (p.productImageUrl || p.image || ''),
-            originalPrice: originalPrice,
-            discountAmount: discountAmount,
-            discountPercent: discountPercent,
-            quantity: p.qty,
-            variant: p.color || p.variant || '', // Persisted color
-            size: p.size || '',
-            color: p.color || '',
-            productTotalValue: p.price * p.qty,
-            discountedUnitPrice: p.price,
-            productTotalValueAfterDiscount: p.price * p.qty // Final value paid for this line item
-          };
-        });
-
-        window.adobeDataLayer.push({
-          event: "purchase",
-          xdmCommerce: {
-            order: {
-              orderID: order.id,
-              totalValue: order.revenue,
-              currency: "USD",
-              couponCode: order.couponCode || '',
-              couponDiscountAmount: order.discountAmount || 0,
-              orderTotalBeforeCoupon: order.subtotal || order.revenue,
-              orderTotalAfterCoupon: order.revenue,
-              totalQuantity: order.products.reduce((sum, item) => sum + item.qty, 0), // Adding totalQuantity to Order object as well for consistency
-              totalDiscountAmount: (order.subtotal - order.revenue) + productsArray.reduce((acc, p) => acc + (p.discountAmount * p.quantity), 0)
-              // Wait, previous calc was totalDiscountAmount = (MRP_Sum - Subtotal) + (Subtotal - Total).
-              // Let's replicate that logic accurately.
-              // We need MRP sum again.
-            },
-            products: productsArray
-          }
-        });
-
-        // Re-calculate Total Discount correctly before push
-        let totalSellingPriceSum = 0;
-        let totalMrpSum = 0;
-
-        productsArray.forEach(p => {
-          totalMrpSum += (p.originalPrice * p.quantity);
-          totalSellingPriceSum += (p.price * p.quantity);
-        });
-
-        // Subtotal = Sum(SellingPrice * Qty)
-        // Total = Subtotal - CouponDiscount
-
-        const subtotal = order.subtotal || order.revenue; // matches totalSellingPriceSum usually
-        const couponDiscount = order.discountAmount || 0;
-
-        // Total Discount = (MRP Sum - Selling Price Sum) + Coupon Discount
-        const totalDiscount = (totalMrpSum - totalSellingPriceSum) + couponDiscount;
-
-        window.adobeDataLayer.pop();
-        window.adobeDataLayer.push({
-          event: "purchase",
-          xdmCommerce: {
-            order: {
-              orderID: order.id,
-              totalValue: order.revenue,
-              currency: "USD",
-              couponCode: order.couponCode || '',
-              couponDiscountAmount: order.discountAmount || 0,
-              orderTotalBeforeCoupon: totalSellingPriceSum,
-              orderTotalAfterCoupon: order.revenue,
-              totalQuantity: order.products.reduce((sum, item) => sum + item.qty, 0),
-              totalDiscountAmount: totalDiscount
-            },
-            products: productsArray
-          }
-        });
-        order.purchaseEventPushed = true;
-        window.StaticData.setOrder(orderId, order);
-
-        // Clear coupon after successful order
-        window.StaticData.removeCoupon();
-      } else {
-        // Page load push for reload (already handled)
-        // Ensure consistency with new structure if we were to re-push purchase (we don't), but pageLoaded is fine.
-        window.adobeDataLayer.push({
-          event: "pageLoaded",
-          xdmPageLoad: {
-            custData: {
-              loginStatus: user ? "logged-in" : "guest",
-              platform: "desktop web",
-              language: "en"
-            },
-            web: {
-              webPageDetails: {
-                siteName: "shopkart",
-                pageName: "Order Confirmation",
-                pageType: "confirmation",
-                channel: "web"
-              }
-            },
-            pageUrl: {
-              dataLayerUrl: url.href,
-              deUrl: url.href,
-              urlWithQSP: url.href,
-              urlWithoutQSP: url.origin + url.pathname
-            }
-          }
-        });
-      }
-
-      window.currentOrder = order;
+        }
+      });
+      console.log("ACDL: pageLoaded tracked (Confirmation)");
     })();
   </script>
   <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js"
@@ -213,7 +77,7 @@
       <a href="./plp.html?cat=electronics">Electronics</a>
       <a href="./plp.html?cat=mobiles">Mobiles</a>
       <a href="./plp.html?cat=fashion">Fashion</a>
-      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=home%20appliances">Home Appliances</a>
       <a href="./plp.html?cat=beauty">Beauty</a>
       <a href="./plp.html?cat=all">All</a>
     </div>
@@ -231,11 +95,89 @@
   <script>
     (function () {
       if (typeof window.currentOrder === 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('orderId');
+        window.currentOrder = orderId ? window.StaticData.getOrder(orderId) : null;
+      }
+
+      const order = window.currentOrder;
+
+      if (!order) {
         document.getElementById('thankyou-content').innerHTML = '<p>No order found. Please complete checkout.</p>';
         return;
       }
 
-      const order = window.currentOrder;
+      // Track Purchase if not already pushed (using persist flag in order object)
+      if (!order.purchaseEventPushed) {
+        // Reconstruct Product Details
+        const productsArray = order.products.map(p => {
+          let category = "";
+          let originalPrice = p.price;
+          let product = null;
+          if (typeof PRODUCTS !== 'undefined') {
+            product = PRODUCTS.find(prod => prod.id === p.productId);
+            if (product) {
+              category = product.category;
+              originalPrice = product.mrp || product.price;
+            }
+          }
+          return {
+            ...p,
+            category: category,
+            productName: p.productName,
+            productID: p.productId,
+            sku: product ? product.sku : (p.sku || ''),
+            originalPrice: originalPrice,
+            quantity: p.qty,
+            price: p.price,
+            brand: product ? product.brand : 'shopkart'
+          };
+        });
+
+        const subtotal = order.subtotal || order.revenue;
+        const total = order.revenue;
+
+        if (window.adl && window.adl.trackPurchase) {
+          // Retrieve persisted checkout data to ensure accuracy
+          let checkoutData = {};
+          try {
+            checkoutData = JSON.parse(sessionStorage.getItem("shopkart_checkout")) || {};
+          } catch (e) { }
+
+          const persistentEmail = sessionStorage.getItem("shopkart_email") || order.email;
+
+          window.adl.trackPurchase({
+            orderID: order.id,
+            customerEmail: persistentEmail,
+            totalQuantity: order.products.reduce((sum, item) => sum + item.qty, 0),
+            subtotal: subtotal,
+            totalValue: total,
+            shipping: 0,
+            tax: 0,
+            products: productsArray,
+            shippingAddress: {
+              firstName: checkoutData.name ? checkoutData.name.split(' ')[0] : '', // Simple split
+              lastName: checkoutData.name ? checkoutData.name.split(' ').slice(1).join(' ') : '',
+              email: persistentEmail,
+              phone: checkoutData.phone || order.shippingAddress.phone,
+              city: checkoutData.city || order.shippingAddress.city,
+              state: checkoutData.state || order.shippingAddress.state,
+              zipCode: checkoutData.postalCode || order.shippingAddress.postalCode,
+              addressLine1: checkoutData.addressLine1 || order.shippingAddress.addressLine1
+            },
+            paymentMethod: order.paymentMethod
+          });
+        }
+
+        order.purchaseEventPushed = true;
+        window.StaticData.setOrder(order.id, order); // Perist status
+        window.StaticData.removeCoupon();
+
+        // Clear session storage so next checkout generates a new email
+        sessionStorage.removeItem("shopkart_email");
+        sessionStorage.removeItem("shopkart_checkout");
+      }
+
       let html = `
         <h2>Thank you for your order!</h2>
         <p>Your order has been placed successfully. We'll send you a confirmation email shortly.</p>
@@ -294,65 +236,24 @@
       // Cancel Order Handler
       document.getElementById('cancel-order-btn').addEventListener('click', () => {
         if (confirm('Are you sure you want to cancel this order?')) {
-          const currentOrder = window.currentOrder;
-
-          // Generate Products Array for Event
-          const productsArray = currentOrder.products.map(p => {
-            let discountAmount = 0;
-            let discountPercent = 0;
-            let originalPrice = p.price;
-            let category = "";
-            let product = null;
-
-            if (typeof PRODUCTS !== 'undefined') {
-              product = PRODUCTS.find(prod => prod.id === p.productId);
-              if (product) {
-                category = product.category;
-                originalPrice = product.mrp || product.price;
-                if (originalPrice > p.price) {
-                  discountAmount = originalPrice - p.price;
-                  discountPercent = Math.round((discountAmount / originalPrice) * 100);
-                }
-              }
-            }
-
-            return {
-              productID: p.productId,
-              sku: product ? product.sku : (p.sku || ''),
-              productName: p.productName,
-              category: category,
-              price: p.price,
-              productImageUrl: product ? product.productImageUrl : (p.productImageUrl || p.image || ''),
-              originalPrice: originalPrice,
-              discountAmount: discountAmount,
-              discountPercent: discountPercent,
-              quantity: p.qty,
-              variant: p.variant || [p.size, p.color].filter(Boolean).join(' '),
-              size: p.size || '',
-              color: p.color || ''
-            };
-          });
-
-          // Fire orderCancelled event
+          // Track Cancel
           window.adobeDataLayer.push({
             event: "orderCancelled",
             xdmCommerce: {
               order: {
-                orderID: currentOrder.id,
-                totalValue: currentOrder.revenue,
+                orderID: order.id,
+                totalValue: order.revenue,
                 currency: "USD",
                 status: "cancelled"
-              },
-              products: productsArray
+              }
             }
           });
-          console.log("ACDL: orderCancelled tracked");
 
           // Update UI
           document.getElementById('thankyou-content').innerHTML = `
                 <div class="notice" style="background:#fee;border-color:#fcc;color:#c00;padding:20px;text-align:center;">
                     <h2>Order Cancelled</h2>
-                    <p>Your order ${currentOrder.id} has been cancelled.</p>
+                    <p>Your order ${order.id} has been cancelled.</p>
                     <a href="./plp.html" class="button primary" style="margin-top:16px;display:inline-block;">Return to Shop</a>
                 </div>
             `;

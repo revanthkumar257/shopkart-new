@@ -9,7 +9,7 @@
   <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
   <script src="./public/products.js"></script>
   <script src="./public/static-data.js"></script>
-  <script src="./public/data-layer-helper.js"></script>
+  <script src="./public/adl-utils.js"></script>
   <script>
     (function () {
       const urlParams = new URLSearchParams(window.location.search);
@@ -35,33 +35,6 @@
       window.selectedCategory = category || 'all';
       window.searchQuery = searchQuery;
 
-      // Prepare Product List for Analytics
-      const productList = filtered.map((p, idx) => {
-        const mrp = p.mrp || p.price;
-        let discountAmount = 0;
-        let discountPercent = 0;
-        if (mrp > p.price) {
-          discountAmount = mrp - p.price;
-          discountPercent = Math.round((discountAmount / mrp) * 100);
-        }
-
-        return {
-          productID: p.id,
-          sku: p.sku,
-          productName: p.name,
-          productCategory: p.category,
-          productImageUrl: p.productImageUrl,
-          brand: p.brand,
-          price: p.price,
-          currency: 'USD',
-          originalPrice: mrp,
-          discountAmount: discountAmount,
-          discountPercent: discountPercent,
-          position: idx + 1,
-          quantity: 1
-        };
-      });
-
       const catLabel = category && category !== 'all'
         ? category.charAt(0).toUpperCase() + category.slice(1)
         : 'All';
@@ -69,7 +42,28 @@
       const user = window.StaticData ? window.StaticData.getUser() : null;
       const url = window.location;
 
-      // 1. Page Load with Product List View embedded
+      // Calculate Products for Data Layer (Standardized Logic)
+      const plpProducts = (window.filteredProducts || []).map(p => {
+        const mrp = p.mrp || p.price;
+        const discountAmount = mrp > p.price ? mrp - p.price : 0;
+        const discountPercent = mrp > p.price ? Math.round((discountAmount / mrp) * 100) : 0;
+        return {
+          productID: p.id,
+          sku: p.sku || '',
+          productName: p.name,
+          brand: p.brand || 'shopkart',
+          category: p.category,
+          price: p.price,
+          originalPrice: mrp,
+          discountAmount: discountAmount,
+          discountPercentage: discountPercent,
+          currencyCode: "USD",
+          productImageUrl: p.image,
+          productUrl: `${url.origin}${url.pathname.replace('plp.html', 'pdp.html')}?id=${p.id}`
+        };
+      });
+
+      // 1. Page Load - Merged with Product List (One Event)
       window.adobeDataLayer.push({
         event: "pageLoaded",
         xdmPageLoad: {
@@ -82,8 +76,14 @@
             webPageDetails: {
               siteName: "shopkart",
               pageName: `Product Listing - ${catLabel}`,
-              pageType: "plp",
-              channel: "web"
+              pageType: "category",
+              channel: "web|plp"
+            }
+          },
+          xdmCommerce: {
+            productList: {
+              category: (category && category !== 'all') ? catLabel : 'All Products',
+              products: plpProducts
             }
           },
           pageUrl: {
@@ -92,17 +92,9 @@
             urlWithQSP: url.href,
             urlWithoutQSP: url.origin + url.pathname
           }
-        },
-        xdmCommerce: {
-          productListViews: {
-            value: 1
-          },
-          list: {
-            listName: category && category !== 'all' ? `Category: ${category}` : (searchQuery ? `Search: ${searchQuery}` : "All Products"),
-            products: productList
-          }
         }
       });
+      console.log("ACDL: pageLoaded tracked (PLP) with " + plpProducts.length + " products");
     })();
   </script>
   <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js"
@@ -130,7 +122,7 @@
       <a href="./plp.html?cat=electronics">Electronics</a>
       <a href="./plp.html?cat=mobiles">Mobiles</a>
       <a href="./plp.html?cat=fashion">Fashion</a>
-      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=home%20appliances">Home Appliances</a>
       <a href="./plp.html?cat=beauty">Beauty</a>
       <a href="./plp.html?cat=all">All</a>
     </div>

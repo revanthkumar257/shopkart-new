@@ -9,45 +9,13 @@
   <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
   <script src="./public/products.js"></script>
   <script src="./public/static-data.js"></script>
-  <script src="./public/data-layer-helper.js"></script>
+  <script src="./public/adl-utils.js"></script>
   <script>
     (function () {
       const user = window.StaticData ? window.StaticData.getUser() : null;
       const url = window.location;
 
-      // Calculate Cart State for Data Layer
-      const cart = window.StaticData.getCart();
-      const items = cart.items || [];
-      const total = window.StaticData.getCartTotal();
-
-      const productsArray = items.map(item => {
-        const product = (typeof PRODUCTS !== 'undefined') ? PRODUCTS.find(p => p.id === item.productId) : null;
-        const mrp = product ? (product.mrp || item.price) : item.price;
-        let discountAmount = 0;
-        let discountPercent = 0;
-        if (mrp > item.price) {
-          discountAmount = mrp - item.price;
-          discountPercent = Math.round((discountAmount / mrp) * 100);
-        }
-        const variantStr = [item.size, item.color].filter(Boolean).join(' ');
-
-        return {
-          productID: item.productId,
-          sku: product ? product.sku : (item.sku || ''),
-          productName: item.productName,
-          category: product ? product.category : '',
-          price: item.price,
-          productImageUrl: product ? product.productImageUrl : (item.productImageUrl || item.image),
-          originalPrice: mrp,
-          discountAmount: discountAmount,
-          discountPercent: discountPercent,
-          quantity: item.qty,
-          variant: variantStr,
-          size: item.size || '',
-          color: item.color || ''
-        };
-      });
-
+      // 1. Page Load (Metadata Only)
       window.adobeDataLayer.push({
         event: "pageLoaded",
         xdmPageLoad: {
@@ -61,7 +29,7 @@
               siteName: "shopkart",
               pageName: "Cart",
               pageType: "cart",
-              channel: "web"
+              channel: "web|cart"
             }
           },
           pageUrl: {
@@ -70,26 +38,58 @@
             urlWithQSP: url.href,
             urlWithoutQSP: url.origin + url.pathname
           }
-        },
-        xdmCommerce: {
-          cart: {
-            startdate: new Date().toISOString(),
-            status: "view",
-            totalQuantity: items.reduce((sum, item) => sum + item.qty, 0),
-            totalValueBeforeCoupon: items.reduce((sum, item) => sum + (item.price * item.qty), 0), // Base subtotal of selling prices
-            totalValue: total,
-            orderTotalAfterCoupon: total,
-            couponCode: window.StaticData.getCoupon() ? window.StaticData.getCoupon().code : "",
-            couponDiscountAmount: window.StaticData.getCoupon() ? (window.StaticData.getCartSubtotal() - window.StaticData.getCartTotal()) : 0
-          },
-          products: productsArray.map(p => ({
-            ...p,
-            productTotalValue: p.price * p.quantity,
-            discountedUnitPrice: p.price,
-            productTotalValueAfterDiscount: p.price * p.quantity // Coupon effects handled at order level usually
-          }))
         }
       });
+      console.log("ACDL: pageLoaded tracked (Cart) - Metadata Only");
+
+
+
+      // 2. Shopping Cart View (scView) - Enhanced
+      const cart = window.StaticData ? window.StaticData.getCart() : { items: [] };
+      const items = cart.items || [];
+      const subtotal = window.StaticData ? window.StaticData.getCartSubtotal() : 0;
+      const total = window.StaticData ? window.StaticData.getCartTotal() : 0;
+      const coupon = window.StaticData ? window.StaticData.getCoupon() : null;
+      const discountAmount = subtotal - total;
+
+      const productsArray = items.map(item => {
+        const product = (typeof PRODUCTS !== 'undefined') ? PRODUCTS.find(p => p.id === item.productId) : null;
+        // Calculate item level discount if any (prorated or per item)
+        // For simplicity, we just pass item price. Using market price if available for original.
+        const mrp = product ? (product.mrp || item.price) : item.price;
+        return {
+          sku: product ? product.sku : (item.sku || ''),
+          productID: item.productId,
+          productName: item.productName,
+          category: product ? product.category : '',
+          price: item.price,
+          originalPrice: mrp,
+          discountAmount: Math.max(0, mrp - item.price),
+          discountPercentage: mrp > item.price ? Math.round(((mrp - item.price) / mrp) * 100) : 0,
+          quantity: item.qty,
+          color: item.color || '',
+          size: item.size || '',
+          currencyCode: "USD"
+        };
+      });
+
+      // Direct Push to ensure exact structure
+      window.adobeDataLayer.push({
+        event: "scView",
+        xdmCommerce: {
+          cart: {
+            totalQuantity: items.reduce((sum, item) => sum + item.qty, 0),
+            subtotal: subtotal,
+            discount: discountAmount,
+            couponCode: coupon ? coupon.code : null,
+            totalValue: total,
+            currencyCode: "USD",
+            products: productsArray
+          }
+        }
+      });
+      console.log("ACDL: scView tracked (Cart) with Coupon: " + (coupon ? coupon.code : "None"));
+
     })();
   </script>
   <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js"
@@ -117,7 +117,7 @@
       <a href="./plp.html?cat=electronics">Electronics</a>
       <a href="./plp.html?cat=mobiles">Mobiles</a>
       <a href="./plp.html?cat=fashion">Fashion</a>
-      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=home%20appliances">Home Appliances</a>
       <a href="./plp.html?cat=beauty">Beauty</a>
       <a href="./plp.html?cat=all">All</a>
     </div>
@@ -233,7 +233,7 @@
             const code = e.target.getAttribute('data-code');
             const result = window.StaticData.applyCoupon(code);
             if (result.success) {
-              renderCart();
+              window.location.reload(); // Reload on change
             } else {
               document.getElementById('coupon-message').textContent = result.message;
             }
@@ -243,7 +243,7 @@
         document.querySelectorAll('.remove-coupon-btn').forEach(btn => {
           btn.addEventListener('click', () => {
             window.StaticData.removeCoupon();
-            renderCart();
+            window.location.reload(); // Reload on change
           });
         });
 
@@ -253,50 +253,17 @@
         if (checkoutButton) {
           checkoutButton.addEventListener('click', (e) => {
             e.preventDefault();
-            const dl = window.adobeDataLayer || [];
             const currentCart = window.StaticData.getCart();
             const currentTotal = window.StaticData.getCartTotal();
             const totalQuantity = currentCart.items.reduce((sum, item) => sum + item.qty, 0);
 
-            const productsArray = currentCart.items.map(item => {
-              const product = typeof PRODUCTS !== 'undefined' ? PRODUCTS.find(p => p.id === item.productId) : null;
-              const mrp = product ? (product.mrp || item.price) : item.price;
-              let discountAmount = 0;
-              let discountPercent = 0;
-              if (mrp > item.price) {
-                discountAmount = mrp - item.price;
-                discountPercent = Math.round((discountAmount / mrp) * 100);
-              }
-              // Construct variant string
-              const variantStr = [item.size, item.color].filter(Boolean).join(' ');
+            if (window.adl && window.adl.trackBeginCheckout) {
+              window.adl.trackBeginCheckout({
+                totalQuantity: totalQuantity,
+                totalValue: currentTotal
+              });
+            }
 
-              return {
-                productID: item.productId,
-                sku: product ? product.sku : (item.sku || ''),
-                productName: item.productName,
-                category: product ? product.category : '',
-                price: item.price,
-                productImageUrl: product ? product.productImageUrl : (item.productImageUrl || item.image),
-                originalPrice: mrp,
-                discountAmount: discountAmount,
-                discountPercent: discountPercent,
-                quantity: item.qty,
-                variant: variantStr,
-                size: item.size || '',
-                color: item.color || ''
-              };
-            });
-
-            dl.push({
-              event: "beginCheckout",
-              xdmCommerce: {
-                cart: {
-                  totalQuantity: totalQuantity,
-                  totalValue: currentTotal
-                },
-                products: productsArray
-              }
-            });
             setTimeout(() => {
               window.location.href = './checkout.html';
             }, 100);
@@ -310,8 +277,6 @@
       // Event Delegation (Attached ONCE to cart-content)
       const cartContent = document.getElementById('cart-content');
       if (cartContent) {
-        // Remove old listener if needed (though we are running clean here usually)
-        // We use a named function to allow removal if we wanted, but anon is fine for simple page life
         cartContent.addEventListener('click', (e) => {
           // Handle Remove
           const removeBtn = e.target.closest('[data-action="remove-item"]');
@@ -328,34 +293,26 @@
               (item.color || '') === color
             );
 
-            window.StaticData.removeFromCart(productId, size, color);
-            renderCart();
-            // Update badge
-            const newCount = window.StaticData.getCartCount();
-            const badge = document.querySelector('[data-role="cart-count"]');
-            if (badge) badge.textContent = newCount;
-
-            if (itemToRemove) {
-              const dl = window.adobeDataLayer || [];
+            // Track BEFORE remove to have data
+            if (itemToRemove && window.adl && window.adl.trackRemoveFromCart) {
               const productDef = typeof PRODUCTS !== 'undefined' ? PRODUCTS.find(p => p.id === productId) : null;
-              const variantStr = [size, color].filter(Boolean).join(' ');
-
-              dl.push({
-                event: "removeFromCart",
-                xdmCommerce: {
-                  products: [{
-                    productID: itemToRemove.productId,
-                    sku: productDef ? productDef.sku : (itemToRemove.sku || ''),
-                    productName: itemToRemove.productName,
-                    productImageUrl: productDef ? productDef.productImageUrl : itemToRemove.image,
-                    quantity: itemToRemove.qty,
-                    variant: variantStr,
-                    size: size,
-                    color: color
-                  }]
-                }
-              });
+              window.adl.trackRemoveFromCart({
+                sku: productDef ? productDef.sku : (itemToRemove.sku || ''),
+                productID: itemToRemove.productId,
+                productName: itemToRemove.productName,
+                brand: itemToRemove.brand,
+                price: itemToRemove.price,
+                quantity: itemToRemove.qty,
+                size: size,
+                color: color
+              }, { pageName: 'cart', linkPosition: 'cart-table' });
             }
+
+            // Perform Action
+            window.StaticData.removeFromCart(productId, size, color);
+
+            // RELOAD
+            window.location.reload();
             return;
           }
 
@@ -381,11 +338,8 @@
 
               if (newQty !== item.qty) {
                 window.StaticData.updateItemQty(productId, size, color, newQty);
-                renderCart();
-                // Update badge
-                const newCount = window.StaticData.getCartCount();
-                const badge = document.querySelector('[data-role="cart-count"]');
-                if (badge) badge.textContent = newCount;
+                // RELOAD
+                window.location.reload();
               }
             }
           }

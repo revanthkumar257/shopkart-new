@@ -9,11 +9,13 @@
   <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
   <script src="./public/products.js"></script>
   <script src="./public/static-data.js"></script>
-  <script src="./public/data-layer-helper.js"></script>
+  <script src="./public/adl-utils.js"></script>
   <script>
     (function () {
+      // 1. Page Load Metadata
       const user = window.StaticData ? window.StaticData.getUser() : null;
       const url = window.location;
+
       window.adobeDataLayer.push({
         event: "pageLoaded",
         xdmPageLoad: {
@@ -27,7 +29,7 @@
               siteName: "shopkart",
               pageName: "Checkout",
               pageType: "checkout",
-              channel: "web"
+              channel: "web|checkout"
             }
           },
           pageUrl: {
@@ -38,6 +40,7 @@
           }
         }
       });
+      console.log("ACDL: pageLoaded tracked (Checkout)");
     })();
   </script>
   <script src="https://assets.adobedtm.com/21b53c73144b/7aeaf66121c7/launch-83692fabdb6b-development.min.js"
@@ -50,7 +53,7 @@
       <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
       <form class="search" method="GET" action="./plp.html">
         <input type="text" name="q" placeholder="Search for electronics, fashion, home and more"
-          aria-label="Search products" value="" />
+          aria-label="Search products" />
         <button type="submit">Search</button>
       </form>
       <div class="actions">
@@ -65,16 +68,14 @@
       <a href="./plp.html?cat=electronics">Electronics</a>
       <a href="./plp.html?cat=mobiles">Mobiles</a>
       <a href="./plp.html?cat=fashion">Fashion</a>
-      <a href="./plp.html?cat=home">Home</a>
+      <a href="./plp.html?cat=home%20appliances">Home Appliances</a>
       <a href="./plp.html?cat=beauty">Beauty</a>
       <a href="./plp.html?cat=all">All</a>
     </div>
   </header>
   <main>
     <h2>Checkout</h2>
-    <div id="checkout-content">
-      <p>Loading...</p>
-    </div>
+    <div id="checkout-container">Loading...</div>
   </main>
   <footer>
     <p>ShopKart marketplace</p>
@@ -83,83 +84,53 @@
   <script src="./public/client.js"></script>
   <script>
     (function () {
-      function renderCheckout() {
+      const container = document.getElementById('checkout-container');
+      const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get('error');
+
+      const renderCheckout = () => {
+        const user = window.StaticData ? window.StaticData.getUser() : null;
         const cart = window.StaticData.getCart();
-        const total = window.StaticData.getCartTotal();
         const subtotal = window.StaticData.getCartSubtotal();
+        const total = window.StaticData.getCartTotal();
         const coupon = window.StaticData.getCoupon();
-        const user = window.StaticData.getUser();
-        const container = document.getElementById('checkout-content');
 
-        // Handle Order Failed Event
-        const error = new URLSearchParams(window.location.search).get('error');
-        if (error) {
-          window.adobeDataLayer.push({
-            event: "orderFailed",
-            xdmCommerce: {
-              order: {
-                orderType: "checkout",
-                errorType: "validation",
-                errorMessage: error
-              }
-            }
-          });
-          console.log("ACDL: orderFailed tracked");
-        }
-
-        if (!cart.items || cart.items.length === 0) {
-          container.innerHTML = '<p>Your cart is empty. <a href="./plp.html">Add items</a> to continue.</p>';
+        if (cart.items.length === 0) {
+          container.innerHTML = '<p>Your cart is empty. <a href="./plp.html?cat=all">Start Shopping</a></p>';
           return;
         }
 
-        const productsArray = cart.items.map(item => {
-          // Re-derive price details if possible
-          const product = typeof PRODUCTS !== 'undefined' ? PRODUCTS.find(p => p.id === item.productId) : null;
+        // Prepare products logic for SC Checkout
+        const productsArray = cart.items.map(function (item) {
+          const product = window.PRODUCTS ? window.PRODUCTS.find(p => p.id === item.productId) : null;
           const mrp = product ? (product.mrp || item.price) : item.price;
-          let discountAmount = 0;
-          let discountPercent = 0;
-          if (mrp > item.price) {
-            discountAmount = mrp - item.price;
-            discountPercent = Math.round((discountAmount / mrp) * 100);
-          }
-          // Construct variant string
-          const variantStr = [item.size, item.color].filter(Boolean).join(' ');
+          const discountAmount = mrp > item.price ? mrp - item.price : 0;
+          const discountPercent = mrp > item.price ? Math.round((discountAmount / mrp) * 100) : 0;
 
           return {
             productID: item.productId,
-            sku: product ? product.sku : (item.sku || ''),
+            sku: product ? (product.sku || '') : '',
             productName: item.productName,
+            brand: product ? (product.brand || 'shopkart') : 'shopkart',
             category: product ? product.category : '',
             price: item.price,
-            productImageUrl: product ? product.productImageUrl : (item.productImageUrl || item.image),
             originalPrice: mrp,
             discountAmount: discountAmount,
-            discountPercent: discountPercent,
+            discountPercentage: discountPercent,
             quantity: item.qty,
-            variant: variantStr,
-            size: item.size || '',
+            productImageUrl: item.image,
             color: item.color || '',
-            productTotalValue: item.price * item.qty,
-            discountedUnitPrice: item.price,
-            productTotalValueAfterDiscount: item.price * item.qty
+            size: item.size || ''
           };
         });
 
-        window.adobeDataLayer.push({
-          event: "checkoutView",
-          xdmCommerce: {
-            cart: {
-              totalQuantity: cart.items.reduce((sum, item) => sum + item.qty, 0),
-              totalValueBeforeCoupon: subtotal, // Original subtotal (Selling Price Sum)
-              totalValue: total, // Final payable
-              totalDiscountAmount: (subtotal - total), // Coupon Savings
-              couponCode: coupon ? coupon.code : '',
-              couponDiscountAmount: coupon ? (subtotal - total) : 0,
-            },
+        if (window.adl && window.adl.trackCheckout) {
+          window.adl.trackCheckout({
+            totalQuantity: cart.items.reduce((sum, item) => sum + item.qty, 0),
+            totalValue: total,
             products: productsArray
-          }
-        });
-        console.log("ACDL: checkoutView tracked");
+          });
+        }
 
         let html = '';
         if (error) {
@@ -208,7 +179,7 @@
               <label for="postalCode">Postal Code *</label>
               <input id="postalCode" name="postalCode" required placeholder="10001" value="" />
             </div>
-            
+
             <h3 style="margin-top:24px;">Payment Method *</h3>
             <div class="form-group" style="display:flex;flex-direction:column;gap:8px;">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
@@ -224,7 +195,7 @@
                 <span>Cash on Delivery (COD)</span>
               </label>
             </div>
-            
+
             <h3 style="margin-top:24px;">Payment Simulation</h3>
             <div class="form-group" style="display:flex;flex-direction:column;gap:8px;">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
@@ -236,11 +207,25 @@
                 <span>Payment Failure</span>
               </label>
             </div>
-            
+
             <button class="button primary" type="submit" style="margin-top:16px;">Place Order</button>
           </form>
         </div>`;
+
         container.innerHTML = html;
+
+        // Auto-Fill Email Logic (Execution moved outside template string)
+        setTimeout(() => {
+          let email = sessionStorage.getItem("shopkart_email");
+          if (!email) {
+            email = 'test_' + Date.now() + '@shopkart.test';
+            sessionStorage.setItem("shopkart_email", email);
+          }
+          const emailInput = document.getElementById('email');
+          if (emailInput && !emailInput.value) {
+            emailInput.value = email;
+          }
+        }, 100);
 
         // Handle form submission
         document.getElementById('checkout-form').addEventListener('submit', (e) => {
@@ -258,11 +243,16 @@
             paymentMethod: formData.get('paymentMethod')
           };
 
+          // Persistence: Checkout Data
+          sessionStorage.setItem("shopkart_checkout", JSON.stringify(data));
+          // Persistence: Email (ensure it matches)
+          sessionStorage.setItem("shopkart_email", data.email);
+
           // Validation
           const errors = [];
           if (!data.name || !data.name.trim()) errors.push('Name is required');
           if (!data.email || !data.email.trim()) errors.push('Email is required');
-          if (!data.addressLine1 || !data.addressLine1.trim()) errors.push('Address line 1 is required');
+          if (!data.addressLine1 || !data.addressLine1.trim()) errors.push('Address Line 1 is required');
           if (!data.city || !data.city.trim()) errors.push('City is required');
           if (!data.state || !data.state.trim()) errors.push('State is required');
           if (!data.postalCode || !data.postalCode.trim()) errors.push('Postal code is required');
@@ -281,7 +271,7 @@
             return;
           }
 
-          // Create order
+          // Create order const
           const orderId = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
           const currentTotal = window.StaticData.getCartTotal();
           const currentSubtotal = window.StaticData.getCartSubtotal();
@@ -298,9 +288,9 @@
               const product = typeof PRODUCTS !== 'undefined' ? PRODUCTS.find(p => p.id === item.productId) : null;
               return {
                 productId: item.productId,
-                sku: product ? product.sku : (item.sku || ''),
+                sku: product ? (product.sku || '') : '',
                 productName: item.productName,
-                productImageUrl: product ? product.productImageUrl : (item.productImageUrl || item.image),
+                productImageUrl: product ? product.productImageUrl : (product ? product.image : item.image),
                 price: item.price,
                 qty: item.qty,
                 image: item.image,
@@ -327,27 +317,14 @@
 
           window.StaticData.setOrder(orderId, order);
           window.StaticData.clearCart();
-
           window.location.href = `./thankyou.html?orderId=${orderId}`;
         });
-      }
+      };
 
-      renderCheckout();
-
-      // Update user info
-      const user = window.StaticData ? window.StaticData.getUser() : null;
-      const userInfo = document.getElementById('user-info');
-      const accountLink = document.getElementById('account-link');
-      const logoutLink = document.getElementById('logout-link');
-
-      if (user) {
-        if (userInfo) userInfo.textContent = user.name;
-        if (accountLink) accountLink.style.display = 'none';
-        if (logoutLink) logoutLink.style.display = 'inline';
+      if (window.StaticData) {
+        renderCheckout();
       } else {
-        if (userInfo) userInfo.textContent = '';
-        if (accountLink) accountLink.style.display = 'inline';
-        if (logoutLink) logoutLink.style.display = 'none';
+        setTimeout(renderCheckout, 500);
       }
     })();
   </script>
