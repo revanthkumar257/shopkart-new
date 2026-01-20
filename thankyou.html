@@ -152,19 +152,10 @@
             totalQuantity: order.products.reduce((sum, item) => sum + item.qty, 0),
             subtotal: subtotal,
             totalValue: total,
-            shipping: 0,
-            tax: 0,
+            discount: order.discountAmount || 0,
+            couponCode: order.couponCode || '',
             products: productsArray,
-            shippingAddress: {
-              firstName: checkoutData.name ? checkoutData.name.split(' ')[0] : '', // Simple split
-              lastName: checkoutData.name ? checkoutData.name.split(' ').slice(1).join(' ') : '',
-              email: persistentEmail,
-              phone: checkoutData.phone || order.shippingAddress.phone,
-              city: checkoutData.city || order.shippingAddress.city,
-              state: checkoutData.state || order.shippingAddress.state,
-              zipCode: checkoutData.postalCode || order.shippingAddress.postalCode,
-              addressLine1: checkoutData.addressLine1 || order.shippingAddress.addressLine1
-            },
+            products: productsArray,
             paymentMethod: order.paymentMethod
           });
         }

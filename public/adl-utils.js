@@ -193,17 +193,16 @@
     trackPurchase: function (order) {
       window.adobeDataLayer.push({
         event: "scPurchase",
-        custData: {
-          ...getCustData(),
-          customerID: order.customerEmail || getCustData().customerID // augment if available
-        },
+        custData: getCustData(), // Fix: Do NOT use email as fallback for customerID
         xdmCommerce: {
           order: {
             orderID: order.orderID,
+            email: order.customerEmail, // Fix: Add email here
+            email: order.customerEmail, // Fix: Add email here
             totalQuantity: order.totalQuantity,
             subtotal: order.subtotal,
-            shipping: order.shipping || 0,
-            tax: order.tax || 0,
+            discount: order.discount || 0, // Fee: Add discount
+            couponCode: order.couponCode || '', // Fix: Add couponCode
             totalValue: order.totalValue,
             paymentMethod: order.paymentMethod || "credit_card",
             currencyCode: "USD",
@@ -219,16 +218,8 @@
               size: p.size || '',
               quantity: p.quantity,
               currencyCode: "USD"
-            })),
-
-            shippingAddress: order.shippingAddress ? {
-              firstName: order.shippingAddress.firstName,
-              lastName: order.shippingAddress.lastName,
-              address: order.shippingAddress.address,
-              city: order.shippingAddress.city,
-              state: order.shippingAddress.state,
-              zipCode: order.shippingAddress.zipCode
-            } : undefined
+            }))
+            // Fix: Removed shippingAddress entirely
           }
         }
       });
