@@ -201,12 +201,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    handleLinkClick(el, e);
-
     // Special handling for Add to Cart button - let form submit handler fire addToCart separately
+    // ISSUE FIX: Prevent linkClicked from firing on Add to Cart
     if (el.type === 'submit' && el.closest('#add-to-cart-form')) {
       return;
     }
+
+    handleLinkClick(el, e);
   });
 
   // Search form submission

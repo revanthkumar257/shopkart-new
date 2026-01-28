@@ -101,27 +101,17 @@
       // but since we are in the head, we can define a global helper or wait for DOM.
       // Better to attach in the body script where we render the form.
       window.trackPDPUpdate = function (color, size, qty) {
-        window.adobeDataLayer.push({
-          event: "pdpAttributeUpdate",
-          web: {
-            productDetails: [{
-              productID: product.id,
-              sku: product.sku,
-              productName: product.name,
-              brand: product.brand || 'shopkart',
-              category: product.category,
-              price: product.price, // Unit price
-              originalPrice: mrp,
-              discountAmount: discountAmount,
-              discountPercentage: discountPercent,
-              currencyCode: "USD",
-              quantity: Number(qty) || 1,
-              color: color || '',
-              size: size || ''
-            }]
+        // ISSUE FIX: Do not fire new event. Update existing pageLoaded state.
+        const pageLoadedEvent = window.adobeDataLayer.find(e => e.event === 'pageLoaded');
+        if (pageLoadedEvent && pageLoadedEvent.xdmPageLoad && pageLoadedEvent.xdmPageLoad.web && pageLoadedEvent.xdmPageLoad.web.productDetails) {
+          const product = pageLoadedEvent.xdmPageLoad.web.productDetails[0];
+          if (product) {
+            product.color = color || '';
+            product.size = size || '';
+            product.quantity = Number(qty) || 1;
+            console.log(`ACDL: Updated pageLoaded state (Color:${color}, Size:${size}, Qty:${qty})`);
           }
-        });
-        console.log(`ACDL: pdpAttributeUpdate tracked (Color:${color}, Size:${size}, Qty:${qty})`);
+        }
       };
     })();
   </script>
