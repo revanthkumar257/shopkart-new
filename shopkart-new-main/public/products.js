@@ -376,8 +376,8 @@ const PRODUCTS = [
       ['Size', '200g']
     ],
     position: 18,
-    image: "./public/images/beauty/POND's Bright Beauty Infused with vitamin B3 & Niacinamide for Anti Dullness & glass skin shine Face Wash  (200 g).png",
-    productImageUrl: "./public/images/beauty/POND's Bright Beauty Infused with vitamin B3 & Niacinamide for Anti Dullness & glass skin shine Face Wash  (200 g).png"
+    image: "/images/beauty/POND's Bright Beauty Infused with vitamin B3 & Niacinamide for Anti Dullness & glass skin shine Face Wash  (200 g).png",
+    productImageUrl: "/images/beauty/POND's Bright Beauty Infused with vitamin B3 & Niacinamide for Anti Dullness & glass skin shine Face Wash  (200 g).png"
   }
 ];
 

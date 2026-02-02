@@ -24,7 +24,6 @@
             platform: "desktop web",
             language: "en"
           },
-          _digiwebanoptznapcptrsd: {},
           web: {
             webPageDetails: {
               siteName: "shopkart",
@@ -259,13 +258,10 @@
             const totalQuantity = currentCart.items.reduce((sum, item) => sum + item.qty, 0);
 
             if (window.adl && window.adl.trackBeginCheckout) {
-              // Try to find phone if we are on checkout page? No, this is Cart page -> Checkout.
-              // We likely don't have phone yet unless it's in storage.
-              const storedPhone = sessionStorage.getItem("shopkart_phone");
               window.adl.trackBeginCheckout({
                 totalQuantity: totalQuantity,
                 totalValue: currentTotal
-              }, { phone: storedPhone });
+              });
             }
 
             setTimeout(() => {

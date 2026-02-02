@@ -24,7 +24,6 @@
             platform: "desktop web",
             language: "en"
           },
-          _digiwebanoptznapcptrsd: {},
           web: {
             webPageDetails: {
               siteName: "shopkart",
@@ -126,13 +125,11 @@
         });
 
         if (window.adl && window.adl.trackCheckout) {
-          // Retrieve phone if user typed it (live binding or re-render)
-          const phoneInput = document.getElementById('phone');
           window.adl.trackCheckout({
             totalQuantity: cart.items.reduce((sum, item) => sum + item.qty, 0),
             totalValue: total,
             products: productsArray
-          }, phoneInput ? phoneInput.value : '');
+          });
         }
 
         let html = '';
@@ -248,9 +245,8 @@
 
           // Persistence: Checkout Data
           sessionStorage.setItem("shopkart_checkout", JSON.stringify(data));
-          // Persistence: Email & Phone
+          // Persistence: Email (ensure it matches)
           sessionStorage.setItem("shopkart_email", data.email);
-          sessionStorage.setItem("shopkart_phone", data.phone);
 
           // Validation
           const errors = [];
@@ -280,25 +276,13 @@
           const currentTotal = window.StaticData.getCartTotal();
           const currentSubtotal = window.StaticData.getCartSubtotal();
           const coupon = window.StaticData.getCoupon();
-
-          let productDiscount = 0;
-          if (typeof PRODUCTS !== 'undefined') {
-            cart.items.forEach(item => {
-              const product = PRODUCTS.find(p => p.id === item.productId);
-              if (product && product.mrp > product.price) {
-                productDiscount += (product.mrp - product.price) * item.qty;
-              }
-            });
-          }
-
-          const couponDiscount = currentSubtotal - currentTotal;
-          const totalDiscount = productDiscount + couponDiscount;
+          const discountAmount = currentSubtotal - currentTotal;
 
           const order = {
             id: orderId,
             revenue: currentTotal,
             subtotal: currentSubtotal,
-            discountAmount: totalDiscount,
+            discountAmount: discountAmount,
             couponCode: coupon ? coupon.code : null,
             products: cart.items.map(item => {
               const product = typeof PRODUCTS !== 'undefined' ? PRODUCTS.find(p => p.id === item.productId) : null;

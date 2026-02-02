@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Home | ShopKart</title>
+  <link rel="stylesheet" href="./public/styles.css" />
+  <script>window.adobeDataLayer = window.adobeDataLayer || [];</script>
+  <script src="./public/products.js"></script>
+  <script src="./public/static-data.js"></script>
+  <script src="./public/adl-utils.js"></script>
+  <script>
+    (function () {
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      const url = window.location;
+
+      // Clean Page Load - Metadata Only
+      window.adobeDataLayer.push({
+        event: "pageLoaded",
+        xdmPageLoad: {
+          custData: {
+            loginStatus: user ? "logged-in" : "guest",
+            platform: "desktop web",
+            language: "en"
+          },
+          web: {
+            webPageDetails: {
+              siteName: "shopkart",
+              pageName: "Home",
+              pageType: "home",
+              channel: "web|home"
+            }
+          },
+          pageUrl: {
+            dataLayerUrl: url.href,
+            deUrl: url.href,
+            urlWithQSP: url.href,
+            urlWithoutQSP: url.origin + url.pathname
+          }
+        }
+      });
+      console.log("ACDL: pageLoaded tracked (Home)");
+    })();
+  </script>
+  <script src="https://assets.adobedtm.com/21b53c73144b/0bfb0f66930e/launch-c5c9b732c095-development.min.js"
+    async></script>
+</head>
+
+<body data-page-type="home">
+  <header>
+    <div class="topbar">
+      <div class="logo"><a href="./index.html" style="color:#fff;text-decoration:none;">ShopKart</a></div>
+      <form class="search" method="GET" action="./plp.html">
+        <input type="text" name="q" placeholder="Search for electronics, fashion, home and more"
+          aria-label="Search products" value="" />
+        <button type="submit">Search</button>
+      </form>
+      <div class="actions">
+        <span id="user-info"></span>
+        <a href="./account.html" aria-label="Account" id="account-link">Account</a>
+        <a href="./logout.html" aria-label="Logout" id="logout-link" style="display:none;">Logout</a>
+        <a href="./cart.html" data-role="cart-link" aria-label="Cart">Cart <span class="cart-badge"
+            data-role="cart-count">0</span></a>
+      </div>
+    </div>
+    <div class="categories">
+      <a href="./plp.html?cat=electronics">Electronics</a>
+      <a href="./plp.html?cat=mobiles">Mobiles</a>
+      <a href="./plp.html?cat=fashion">Fashion</a>
+      <a href="./plp.html?cat=home%20appliances">Home Appliances</a>
+      <a href="./plp.html?cat=beauty">Beauty</a>
+      <a href="./plp.html?cat=all">All</a>
+    </div>
+  </header>
+  <main>
+    <section class="hero-carousel">
+      <div class="carousel-slides">
+        <div class="carousel-slide active" data-bg-image="https://images.unsplash.com/photo-1510552776732-03e61cf4b144"
+          data-fallback="https://images.unsplash.com/photo-1581091012184-5c4c11c3f024"
+          style="background-image: url('https://images.unsplash.com/photo-1510552776732-03e61cf4b144');">
+          <div class="carousel-content">
+            <h1>ShopKart — Everything you need, delivered fast</h1>
+            <p>Top deals on electronics, fashion, home essentials and more. Free delivery over ₹799.</p>
+            <a class="button primary hero-cta" href="./plp.html?cat=electronics">Shop Electronics</a>
+          </div>
+        </div>
+        <div class="carousel-slide" data-bg-image="https://images.unsplash.com/photo-1521334884684-d80222895322"
+          data-fallback="https://images.unsplash.com/photo-1581091012184-5c4c11c3f024"
+          style="background-image: url('https://images.unsplash.com/photo-1521334884684-d80222895322');">
+          <div class="carousel-content">
+            <h1>Fashion Forward</h1>
+            <p>Discover the latest trends in fashion. Style that fits your lifestyle.</p>
+            <a class="button primary hero-cta" href="./plp.html?cat=fashion">Shop Fashion</a>
+          </div>
+        </div>
+        <div class="carousel-slide" data-bg-image="https://images.unsplash.com/photo-1511707171634-5f897ff02aa9"
+          data-fallback="https://images.unsplash.com/photo-1581091012184-5c4c11c3f024"
+          style="background-image: url('https://images.unsplash.com/photo-1511707171634-5f897ff02aa9');">
+          <div class="carousel-content">
+            <h1>Latest Mobiles</h1>
+            <p>Get the newest smartphones with cutting-edge technology and amazing deals.</p>
+            <a class="button primary hero-cta" href="./plp.html?cat=mobiles">Shop Mobiles</a>
+          </div>
+        </div>
+        <div class="carousel-slide" data-bg-image="https://images.unsplash.com/photo-1542834369-f10ebf06d3cb"
+          data-fallback="https://images.unsplash.com/photo-1581091012184-5c4c11c3f024"
+          style="background-image: url('https://images.unsplash.com/photo-1542834369-f10ebf06d3cb');">
+          <div class="carousel-content">
+            <h1>Seasonal Specials</h1>
+            <p>Limited time offers on your favorite products. Don't miss out!</p>
+            <a class="button primary hero-cta" href="./plp.html">Shop Now</a>
+          </div>
+        </div>
+      </div>
+      <div class="carousel-dots">
+        <span class="dot active" data-slide="0"></span>
+        <span class="dot" data-slide="1"></span>
+        <span class="dot" data-slide="2"></span>
+        <span class="dot" data-slide="3"></span>
+      </div>
+    </section>
+
+    <section class="category-banners">
+      <a href="./plp.html?cat=home" class="category-banner"
+        style="background-image: url('https://images.unsplash.com/photo-1505691723518-36a5ac3be353');">
+        <div class="banner-overlay">
+          <h3>Home & Decor</h3>
+          <p>Transform your space</p>
+        </div>
+      </a>
+      <a href="./plp.html?cat=beauty" class="category-banner"
+        style="background-image: url('https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9');">
+        <div class="banner-overlay">
+          <h3>Beauty Essentials</h3>
+          <p>Look and feel great</p>
+        </div>
+      </a>
+    </section>
+
+    <section class="deck">
+      <h3>Deals of the Day</h3>
+      <div class="carousel">
+        <div class="deal-card">
+          <div class="pill">-25%</div>
+          <h4>Smart TVs</h4>
+          <p>Big screens, Dolby Vision, 120Hz</p>
+          <a href="./plp.html?cat=electronics" class="link">Explore deals</a>
+        </div>
+        <div class="deal-card">
+          <div class="pill">Bank offer</div>
+          <h4>Mobiles</h4>
+          <p>5G flagships with exchange bonus</p>
+          <a href="./plp.html?cat=mobiles" class="link">Upgrade now</a>
+        </div>
+        <div class="deal-card">
+          <div class="pill">Combo</div>
+          <h4>Home Appliances</h4>
+          <p>Cookware, purifiers, and more</p>
+          <a href="./plp.html?cat=home%20appliances" class="link">Shop combos</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="deck">
+      <h3>Shop by Category</h3>
+      <div class="category-cards" id="category-cards">
+        <!-- Will be populated by JavaScript -->
+      </div>
+    </section>
+
+    <section class="deck">
+      <h3>Bestselling picks</h3>
+      <div class="grid" id="bestselling-products">
+        <!-- Will be populated by JavaScript -->
+      </div>
+    </section>
+
+    <section class="deck">
+      <h3>Trending now</h3>
+      <div class="grid" id="trending-products">
+        <!-- Will be populated by JavaScript -->
+      </div>
+    </section>
+  </main>
+  <footer>
+    <p>ShopKart marketplace</p>
+  </footer>
+  <script src="./public/adl-utils.js"></script>
+  <script src="./public/client.js"></script>
+  <script>
+    // Populate category cards
+    (function () {
+      if (typeof PRODUCTS === 'undefined') return;
+
+      const catFirst = (cat) => PRODUCTS.find(p => p.category.toLowerCase() === cat);
+      const categories = ['electronics', 'mobiles', 'fashion', 'home', 'beauty', 'all'];
+      const container = document.getElementById('category-cards');
+
+      if (container) {
+        categories.forEach((cat) => {
+          const p = cat === 'all' ? PRODUCTS[0] : catFirst(cat);
+          const card = document.createElement('a');
+          card.className = 'cat-card';
+          card.href = `./plp.html?cat=${cat}`;
+          card.innerHTML = `
+            <div class="cat-thumb">
+              ${p ? `<img src="${p.image}" alt="${p.name}" />` : ''}
+            </div>
+            <div class="cat-text">
+              <div class="cat-title">${cat.charAt(0).toUpperCase() + cat.slice(1)}</div>
+              <div class="muted">Top picks</div>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      }
+
+      // Populate bestselling products (first 4)
+      const bestsellingContainer = document.getElementById('bestselling-products');
+      if (bestsellingContainer) {
+        PRODUCTS.slice(0, 4).forEach((product) => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML = `
+            <div class="card-image">
+                <a href="./pdp.html?id=${product.id}"
+                 data-action="view-product"
+                 data-product-id="${product.id}"
+                 data-product-name="${product.name}"
+                 data-product-category="${product.category}"
+                 data-brand="${product.brand}"
+                 data-price="${product.price}"
+                 data-position="${product.position}"
+                 data-href="./pdp.html?id=${product.id}"
+                 style="display:block;width:100%;height:100%;">
+                <img src="${product.image}" alt="${product.name}" onerror="this.onerror=null; this.src=this.src.startsWith('http') ? './public/images/placeholders/missing-banner.png' : this.src;" />
+              </a>
+              ${product.badge ? `<div class="badge">${product.badge}</div>` : ''}
+              <div class="brand-pill">${product.brand}</div>
+            </div>
+            <h3>${product.name}</h3>
+            <p class="muted">${product.brand} · ${product.category}</p>
+            <p class="price">$${product.price} <span class="muted" style="text-decoration:line-through;">$${product.mrp}</span></p>
+            <div class="stars">★★★★★</div>
+            <a
+              class="button secondary"
+              href="./pdp.html?id=${product.id}"
+              data-action="view-product"
+              data-product-id="${product.id}"
+              data-product-name="${product.name}"
+              data-product-category="${product.category}"
+              data-brand="${product.brand}"
+              data-price="${product.price}"
+              data-position="${product.position}"
+                 data-href="./pdp.html?id=${product.id}"
+            >
+              View
+            </a>
+          `;
+          bestsellingContainer.appendChild(card);
+        });
+      }
+
+      // Populate trending products (next 4)
+      const trendingContainer = document.getElementById('trending-products');
+      if (trendingContainer) {
+        PRODUCTS.slice(4, 8).forEach((product) => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML = `
+            <div class="card-image">
+                <a href="./pdp.html?id=${product.id}"
+                 data-action="view-product"
+                 data-product-id="${product.id}"
+                 data-product-name="${product.name}"
+                 data-product-category="${product.category}"
+                 data-brand="${product.brand}"
+                 data-price="${product.price}"
+                 data-position="${product.position}"
+                 data-href="./pdp.html?id=${product.id}"
+                 style="display:block;width:100%;height:100%;">
+                <img src="${product.image}" alt="${product.name}" onerror="this.onerror=null; this.src=this.src.startsWith('http') ? './public/images/placeholders/missing-banner.png' : this.src;" />
+              </a>
+              ${product.badge ? `<div class="badge">${product.badge}</div>` : ''}
+              <div class="brand-pill">${product.brand}</div>
+            </div>
+            <h3>${product.name}</h3>
+            <p class="muted">${product.brand} · ${product.category}</p>
+            <p class="price">$${product.price} <span class="muted" style="text-decoration:line-through;">$${product.mrp}</span></p>
+            <div class="stars">★★★★☆</div>
+            <a
+              class="button secondary"
+              href="./pdp.html?id=${product.id}"
+              data-action="view-product"
+              data-product-id="${product.id}"
+              data-product-name="${product.name}"
+              data-product-category="${product.category}"
+              data-brand="${product.brand}"
+              data-price="${product.price}"
+              data-position="${product.position}"
+                 data-href="./pdp.html?id=${product.id}"
+            >
+              View
+            </a>
+          `;
+          trendingContainer.appendChild(card);
+        });
+      }
+
+      // Update user info
+      const user = window.StaticData ? window.StaticData.getUser() : null;
+      const userInfo = document.getElementById('user-info');
+      const accountLink = document.getElementById('account-link');
+      const logoutLink = document.getElementById('logout-link');
+
+      if (user) {
+        if (userInfo) userInfo.textContent = user.name;
+        if (accountLink) accountLink.style.display = 'none';
+        if (logoutLink) logoutLink.style.display = 'inline';
+      } else {
+        if (userInfo) userInfo.textContent = '';
+        if (accountLink) accountLink.style.display = 'inline';
+        if (logoutLink) logoutLink.style.display = 'none';
+      }
+    })();
+  </script>
+  <script src="./public/footer-injector.js"></script>
+</body>
+
+</html>

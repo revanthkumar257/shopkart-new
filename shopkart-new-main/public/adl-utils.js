@@ -25,50 +25,19 @@
     };
   };
 
-  // Helper to ensure product completeness
-  const ensureProductFields = (p) => {
-    // Try to lookup full details if we have an ID but missing other fields
-    let fullProd = {};
-    if (typeof PRODUCTS !== 'undefined' && (p.productID || p.id)) {
-      fullProd = PRODUCTS.find(prod => prod.id === (p.productID || p.id)) || {};
-    }
-
-    return {
-      sku: p.sku || fullProd.sku || '',
-      productID: p.productID || p.id || fullProd.id || '',
-      productName: p.productName || p.name || fullProd.name || '',
-      brand: p.brand || fullProd.brand || 'shopkart',
-      category: p.category || fullProd.category || '',
-      price: Number(p.price || fullProd.price || 0),
-      originalPrice: Number(p.originalPrice || fullProd.mrp || fullProd.price || p.price || 0),
-      quantity: Number(p.quantity || p.qty || 1),
-      color: p.color || '',
-      size: p.size || '',
-      rating: p.rating || 4.5, // Defaulting as not consistently in data
-      stockavailable: p.stockavailable || 'true', // Default assumption
-      productImageUrl: p.productImageUrl || p.image || fullProd.productImageUrl || fullProd.image || '',
-      currencyCode: "USD"
-    };
-  };
-
-  // Required Namespace
-  const getNamespace = () => ({
-    _digiwebanoptznapcptrsd: {}
-  });
-
   window.adl = {
     get: (path) => safeGet(getLastPush(), path),
     getLastPush,
 
     // 1. PAGE LOADED
-    // Helpers for pageLoaded mapping if needed in future
+    // Note: pageLoaded usually fired inline, but this helper can be used if needed
+    // or we can just use the structure reference.
 
     // 2. LINK CLICKED
     trackLinkClick: function (linkName, linkType, linkPosition, linkPageName) {
       window.adobeDataLayer.push({
         event: "linkClicked",
         custData: getCustData(),
-        ...getNamespace(),
         xdmActionDetails: {
           web: {
             webInteraction: {
@@ -78,7 +47,7 @@
               linkType: linkType,
               linkPosition: linkPosition,
               linkPageName: linkPageName,
-              linkURL: window.location.href
+              linkURL: window.location.href // Optional, good for context
             }
           }
         }
@@ -88,33 +57,41 @@
 
     // 3. ADD TO CART
     trackAddToCart: function (product) {
-      const fullProduct = ensureProductFields(product);
       const eventData = {
         event: "addToCart",
         custData: getCustData(),
-        ...getNamespace(),
         xdmCommerce: {
-          product: fullProduct
+          product: {
+            sku: product.sku || '',
+            productID: product.productID || product.id,
+            productName: product.productName || product.name,
+            brand: product.brand || 'shopkart',
+            category: product.category || '',
+            color: product.color || '',
+            size: product.size || '',
+            price: product.price,
+            quantity: product.quantity || 1,
+            currencyCode: "USD"
+          }
         }
       };
 
-      // Add CTA metadata
+      // Add CTA metadata if provided (passed via product object/augment)
       if (product.linkPosition || product.linkType) {
         eventData.xdmCommerce.product.linkPosition = product.linkPosition || '';
         eventData.xdmCommerce.product.linkType = product.linkType || '';
       }
 
       window.adobeDataLayer.push(eventData);
-      console.log("ACDL: addToCart tracked", fullProduct.sku);
+      console.log("ACDL: addToCart tracked", product.sku);
     },
 
     // 4. REMOVE FROM CART
+    // Fires linkClicked THEN removeFromCart
     trackRemoveFromCart: function (product, context) {
-      const fullProduct = ensureProductFields(product);
-
       // 1. Track Link Click
       this.trackLinkClick(
-        'remove ' + (fullProduct.productName || 'item'),
+        'remove ' + (product.productName || 'item'),
         'removeFromCart',
         context.linkPosition || 'cart-table',
         context.pageName || 'cart'
@@ -124,12 +101,22 @@
       window.adobeDataLayer.push({
         event: "removeFromCart",
         custData: getCustData(),
-        ...getNamespace(),
         xdmCommerce: {
-          product: fullProduct
+          product: {
+            sku: product.sku || '',
+            productID: product.productID || product.id,
+            productName: product.productName || product.name,
+            brand: product.brand || 'shopkart',
+            category: product.category || '',
+            price: product.price || 0,
+            color: product.color || '',
+            size: product.size || '',
+            quantity: product.quantity || 1,
+            currencyCode: "USD"
+          }
         }
       });
-      console.log("ACDL: removeFromCart tracked", fullProduct.sku);
+      console.log("ACDL: removeFromCart tracked", product.sku);
     },
 
     // 5. CART VIEW
@@ -137,12 +124,23 @@
       window.adobeDataLayer.push({
         event: "scView",
         custData: getCustData(),
-        ...getNamespace(),
         xdmCommerce: {
           cart: {
+            // Assuming cart object passed has these or we derive them
             totalQuantity: cart.totalQuantity,
             totalValue: cart.totalValue,
-            products: cart.products.map(p => ensureProductFields(p))
+            products: cart.products.map(p => ({
+              sku: p.sku || '',
+              productID: p.productID || p.id,
+              productName: p.productName || p.name,
+              brand: p.brand || 'shopkart',
+              category: p.category || '',
+              price: p.price,
+              color: p.color || '',
+              size: p.size || '',
+              quantity: p.quantity,
+              currencyCode: "USD"
+            }))
           }
         }
       });
@@ -150,80 +148,81 @@
     },
 
     // 6. BEGIN CHECKOUT
-    trackBeginCheckout: function (cart, additionalContext) {
-      const data = {
+    trackBeginCheckout: function (cart) {
+      window.adobeDataLayer.push({
         event: "beginCheckout",
         custData: getCustData(),
-        ...getNamespace(),
         xdmCommerce: {
           checkout: {
             totalQuantity: cart.totalQuantity,
             totalValue: cart.totalValue
           }
         }
-      };
-
-      // If phone is captured early (unlikely in standard flow but possible)
-      if (additionalContext && additionalContext.phone) {
-        if (!data.custData) data.custData = {};
-        data.custData.mobilePhone = additionalContext.phone;
-      }
-
-      window.adobeDataLayer.push(data);
+      });
       console.log("ACDL: beginCheckout tracked");
     },
 
     // 7. CHECKOUT VIEW
-    trackCheckout: function (cart, phone) {
-      const data = {
+    trackCheckout: function (cart) {
+      window.adobeDataLayer.push({
         event: "scCheckout",
         custData: getCustData(),
-        ...getNamespace(),
         xdmCommerce: {
           checkout: {
             totalQuantity: cart.totalQuantity,
             totalValue: cart.totalValue,
-            products: cart.products.map(p => ensureProductFields(p))
+            products: cart.products.map(p => ({
+              sku: p.sku || '',
+              productID: p.productID || p.id,
+              productName: p.productName || p.name,
+              brand: p.brand || 'shopkart',
+              category: p.category || '',
+              price: p.price,
+              color: p.color || '',
+              size: p.size || '',
+              quantity: p.quantity,
+              currencyCode: "USD"
+            }))
           }
         }
-      };
-
-      if (phone) {
-        data.custData.mobilePhone = phone;
-      }
-
-      window.adobeDataLayer.push(data);
+      });
       console.log("ACDL: scCheckout tracked");
     },
 
     // 8. PURCHASE
     trackPurchase: function (order) {
-      const purchaseData = {
+      window.adobeDataLayer.push({
         event: "scPurchase",
-        custData: getCustData(),
-        ...getNamespace(),
+        custData: getCustData(), // Fix: Do NOT use email as fallback for customerID
         xdmCommerce: {
           order: {
             orderID: order.orderID,
-            email: order.email, // using direct email from order
+            email: order.customerEmail, // Fix: Add email here
+            email: order.customerEmail, // Fix: Add email here
             totalQuantity: order.totalQuantity,
             subtotal: order.subtotal,
-            discount: order.discount || 0,
-            couponCode: order.couponCode || '',
+            discount: order.discount || 0, // Fee: Add discount
+            couponCode: order.couponCode || '', // Fix: Add couponCode
             totalValue: order.totalValue,
             paymentMethod: order.paymentMethod || "credit_card",
             currencyCode: "USD",
-            products: order.products.map(p => ensureProductFields(p))
+
+            products: order.products.map(p => ({
+              sku: p.sku || '',
+              productID: p.productID,
+              productName: p.productName,
+              brand: p.brand || 'shopkart',
+              category: p.category || '',
+              price: p.price,
+              color: p.color || '',
+              size: p.size || '',
+              quantity: p.quantity,
+              currencyCode: "USD"
+            }))
+            // Fix: Removed shippingAddress entirely
           }
         }
-      };
-
-      // Add Phone to custData if available in order (shipping address)
-      if (order.shippingAddress && order.shippingAddress.phone) {
-        purchaseData.custData.mobilePhone = order.shippingAddress.phone;
-      }
-
-      window.adobeDataLayer.push(purchaseData);
+      });
       console.log("ACDL: scPurchase tracked", order.orderID);
     }
   };

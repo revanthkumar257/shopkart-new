@@ -58,10 +58,8 @@
           discountAmount: discountAmount,
           discountPercentage: discountPercent,
           currencyCode: "USD",
-          productImageUrl: p.productImageUrl || p.image,
-          productUrl: `${url.origin}${url.pathname.replace('plp.html', 'pdp.html')}?id=${p.id}`,
-          rating: p.rating || 4.5,
-          stockavailable: p.stockavailable || 'true'
+          productImageUrl: p.image,
+          productUrl: `${url.origin}${url.pathname.replace('plp.html', 'pdp.html')}?id=${p.id}`
         };
       });
 
@@ -74,7 +72,6 @@
             platform: "desktop web",
             language: "en"
           },
-          _digiwebanoptznapcptrsd: {},
           web: {
             webPageDetails: {
               siteName: "shopkart",
