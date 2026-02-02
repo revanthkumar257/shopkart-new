@@ -42,12 +42,15 @@
       const url = window.location;
 
       // 1. Page Load
-      const mrp = product.mrp || product.price;
-      let discountAmount = 0;
-      let discountPercent = 0;
-      if (mrp > product.price) {
-        discountAmount = mrp - product.price;
-        discountPercent = Math.round((discountAmount / mrp) * 100);
+      const mrp = Number(product.mrp || product.price);
+      const price = Number(product.price);
+
+      let productDiscountAmount = 0;
+      let productDiscountPercentage = 0;
+
+      if (mrp > price) {
+        productDiscountAmount = Math.round(((mrp - price) + Number.EPSILON) * 100) / 100;
+        productDiscountPercentage = Math.round((productDiscountAmount / mrp) * 100);
       }
 
       // Aurora Reference PDP: productDetails goes in xdmPageLoad.web.productDetails
@@ -63,7 +66,7 @@
           web: {
             webPageDetails: {
               siteName: "shopkart",
-              pageName: `product:${product.id}`, // Reference format: product:[id]
+              pageName: `product:${product.id}`,
               pageType: "pdp",
               channel: "web|pdp",
               productCategory: product.category
@@ -74,10 +77,10 @@
               productName: product.name,
               brand: product.brand || 'shopkart',
               category: product.category,
-              price: product.price,
+              price: price,
               originalPrice: mrp,
-              discountAmount: discountAmount,
-              discountPercentage: discountPercent,
+              productDiscountAmount: productDiscountAmount,
+              productDiscountPercentage: productDiscountPercentage,
               currencyCode: "USD",
               quantity: 1, // Default view qty
               productImageUrl: product.productImageUrl || product.image,

@@ -48,48 +48,67 @@
       // 2. Shopping Cart View (scView) - Enhanced
       const cart = window.StaticData ? window.StaticData.getCart() : { items: [] };
       const items = cart.items || [];
-      const subtotal = window.StaticData ? window.StaticData.getCartSubtotal() : 0;
-      const total = window.StaticData ? window.StaticData.getCartTotal() : 0;
       const coupon = window.StaticData ? window.StaticData.getCoupon() : null;
-      const discountAmount = subtotal - total;
 
+      // Calculate strict totals for Data Layer
+      let grossSubtotal = 0;
+      let totalProductDiscount = 0;
+      const totalValue = window.StaticData ? window.StaticData.getCartTotal() : 0;
+
+      // Prepare products with full details
       const productsArray = items.map(item => {
         const product = (typeof PRODUCTS !== 'undefined') ? PRODUCTS.find(p => p.id === item.productId) : null;
-        // Calculate item level discount if any (prorated or per item)
-        // For simplicity, we just pass item price. Using market price if available for original.
-        const mrp = product ? (product.mrp || item.price) : item.price;
+
+        const price = Number(item.price);
+        // MRP is either from product definition or fallback to price (no discount)
+        const mrp = Number(product ? (product.mrp || item.price) : item.price);
+        const qty = Number(item.qty);
+
+        const pDiscount = (mrp > price) ? (mrp - price) * qty : 0;
+
+        grossSubtotal += mrp * qty;
+        totalProductDiscount += pDiscount;
+
         return {
           sku: product ? product.sku : (item.sku || ''),
           productID: item.productId,
           productName: item.productName,
           category: product ? product.category : '',
-          price: item.price,
-          originalPrice: mrp,
-          discountAmount: Math.max(0, mrp - item.price),
-          discountPercentage: mrp > item.price ? Math.round(((mrp - item.price) / mrp) * 100) : 0,
-          quantity: item.qty,
+          price: price, // Unit Selling Price
+          originalPrice: mrp, // Unit MRP
+          quantity: qty,
           color: item.color || '',
           size: item.size || '',
-          currencyCode: "USD"
+          productImageUrl: item.image, // For consistency
+          // ADL Helper will calculate unit-level discount breakdown if we pass ID, 
+          // but we can pass explicit values if we want. 
+          // ensureProductFields in adl-utils will re-calculate unit discount based on price/mrp.
         };
       });
 
-      // Direct Push to ensure exact structure
-      window.adobeDataLayer.push({
-        event: "scView",
-        xdmCommerce: {
-          cart: {
-            totalQuantity: items.reduce((sum, item) => sum + item.qty, 0),
-            subtotal: subtotal,
-            discount: discountAmount,
-            couponCode: coupon ? coupon.code : null,
-            totalValue: total,
-            currencyCode: "USD",
-            products: productsArray
-          }
-        }
-      });
-      console.log("ACDL: scView tracked (Cart) with Coupon: " + (coupon ? coupon.code : "None"));
+      // Calculate Coupon Discount
+      // Total Value = GrossSubtotal - TotalProductDiscount - CouponDiscount
+      // So CouponDiscount = GrossSubtotal - TotalProductDiscount - TotalValue
+      // OR more simply: CouponDiscount = (SellingPriceSubtotal - TotalValue) where SellingPriceSubtotal = GrossSubtotal - TotalProductDiscount
+
+      const sellingPriceSubtotal = grossSubtotal - totalProductDiscount;
+      const couponDiscountAmount = Math.max(0, sellingPriceSubtotal - totalValue);
+      const totalDiscount = totalProductDiscount + couponDiscountAmount;
+
+      if (window.adl && window.adl.trackShoppingCartView) {
+        window.adl.trackShoppingCartView({
+          products: productsArray,
+          subtotal: grossSubtotal, // Gross MRP Total
+          productDiscountAmount: totalProductDiscount,
+          couponDiscountAmount: couponDiscountAmount,
+          totalDiscount: totalDiscount,
+          totalValue: totalValue,
+          couponCode: coupon ? coupon.code : null,
+          totalQuantity: items.reduce((sum, item) => sum + item.qty, 0)
+        });
+      } else {
+        console.warn("ADL Utils not loaded, skipping scView");
+      }
 
     })();
   </script>

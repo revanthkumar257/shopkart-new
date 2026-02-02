@@ -110,55 +110,72 @@
 
       // Track Purchase if not already pushed (using persist flag in order object)
       if (!order.purchaseEventPushed) {
-        // Reconstruct Product Details
+
+        // Re-calculate strict totals from products
+        let grossSubtotal = 0;
+        let totalProductDiscount = 0;
+        const totalValue = Number(order.revenue); // Total Paid from order
+
         const productsArray = order.products.map(p => {
           let category = "";
-          let originalPrice = p.price;
+          let originalPrice = Number(p.price);
+          let price = Number(p.price);
           let product = null;
+
           if (typeof PRODUCTS !== 'undefined') {
             product = PRODUCTS.find(prod => prod.id === p.productId);
             if (product) {
               category = product.category;
-              originalPrice = product.mrp || product.price;
+              originalPrice = Number(product.mrp || product.price);
             }
           }
+
+          const qty = Number(p.qty);
+          const pDiscount = (originalPrice > price) ? (originalPrice - price) * qty : 0;
+
+          grossSubtotal += originalPrice * qty;
+          totalProductDiscount += pDiscount;
+
           return {
             ...p,
             category: category,
             productName: p.productName,
             productID: p.productId,
-            sku: product ? product.sku : (p.sku || ''),
+            sku: product ? (product.sku || '') : (p.sku || ''),
             originalPrice: originalPrice,
-            quantity: p.qty,
-            price: p.price,
+            quantity: qty,
+            price: price,
             brand: product ? product.brand : 'shopkart'
           };
         });
 
-        const subtotal = order.subtotal || order.revenue;
-        const total = order.revenue;
+        const sellingPriceSubtotal = grossSubtotal - totalProductDiscount;
+        const couponDiscountAmount = Math.max(0, sellingPriceSubtotal - totalValue);
+        const totalDiscount = totalProductDiscount + couponDiscountAmount;
 
         if (window.adl && window.adl.trackPurchase) {
-          // Retrieve persisted checkout data to ensure accuracy
-          let checkoutData = {};
-          try {
-            checkoutData = JSON.parse(sessionStorage.getItem("shopkart_checkout")) || {};
-          } catch (e) { }
-
           const persistentEmail = sessionStorage.getItem("shopkart_email") || order.email;
 
-          window.adl.trackPurchase({
+          // Construct order object compliant with strict schema
+          const adlOrder = {
             orderID: order.id,
+            email: persistentEmail,
             customerEmail: persistentEmail,
             totalQuantity: order.products.reduce((sum, item) => sum + item.qty, 0),
-            subtotal: subtotal,
-            totalValue: total,
-            discount: order.discountAmount || 0,
+
+            subtotal: grossSubtotal,
+            productDiscountAmount: totalProductDiscount,
+            couponDiscountAmount: couponDiscountAmount,
+            totalDiscount: totalDiscount,
+            totalValue: totalValue,
             couponCode: order.couponCode || '',
+
             products: productsArray,
             paymentMethod: order.paymentMethod,
             shippingAddress: order.shippingAddress
-          });
+          };
+
+          window.adl.trackPurchase(adlOrder);
         }
 
         order.purchaseEventPushed = true;

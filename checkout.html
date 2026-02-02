@@ -101,12 +101,21 @@
           return;
         }
 
-        // Prepare products logic for SC Checkout
+        // Prepare products and totals for SC Checkout
+        let grossSubtotal = 0;
+        let totalProductDiscount = 0;
+        const totalValue = total; // Already fetched from StaticData
+
         const productsArray = cart.items.map(function (item) {
           const product = window.PRODUCTS ? window.PRODUCTS.find(p => p.id === item.productId) : null;
-          const mrp = product ? (product.mrp || item.price) : item.price;
-          const discountAmount = mrp > item.price ? mrp - item.price : 0;
-          const discountPercent = mrp > item.price ? Math.round((discountAmount / mrp) * 100) : 0;
+          const price = Number(item.price);
+          // MRP logic
+          const mrp = Number(product ? (product.mrp || item.price) : item.price);
+          const qty = Number(item.qty);
+
+          const pDiscount = (mrp > price) ? (mrp - price) * qty : 0;
+          grossSubtotal += mrp * qty;
+          totalProductDiscount += pDiscount;
 
           return {
             productID: item.productId,
@@ -114,24 +123,32 @@
             productName: item.productName,
             brand: product ? (product.brand || 'shopkart') : 'shopkart',
             category: product ? product.category : '',
-            price: item.price,
+            price: price,
             originalPrice: mrp,
-            discountAmount: discountAmount,
-            discountPercentage: discountPercent,
-            quantity: item.qty,
+            quantity: qty,
             productImageUrl: item.image,
             color: item.color || '',
             size: item.size || ''
           };
         });
 
+        // Calculate Totals
+        const sellingPriceSubtotal = grossSubtotal - totalProductDiscount;
+        const couponDiscountAmount = Math.max(0, sellingPriceSubtotal - totalValue);
+        const totalDiscount = totalProductDiscount + couponDiscountAmount;
+
         if (window.adl && window.adl.trackCheckout) {
           // Retrieve phone if user typed it (live binding or re-render)
           const phoneInput = document.getElementById('phone');
           window.adl.trackCheckout({
-            totalQuantity: cart.items.reduce((sum, item) => sum + item.qty, 0),
-            totalValue: total,
-            products: productsArray
+            products: productsArray,
+            subtotal: grossSubtotal,
+            productDiscountAmount: totalProductDiscount,
+            couponDiscountAmount: couponDiscountAmount,
+            totalDiscount: totalDiscount,
+            totalValue: totalValue,
+            couponCode: coupon ? coupon.code : null,
+            totalQuantity: cart.items.reduce((sum, item) => sum + item.qty, 0)
           }, phoneInput ? phoneInput.value : '');
         }
 
